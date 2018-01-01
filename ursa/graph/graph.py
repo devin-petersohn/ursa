@@ -19,15 +19,16 @@ class Graph(object):
                                and is built asynchronously.
     """
     
-    def __init__(self):
+    def __init__(self, transaction_id):
         """
         The constructor for the Graph object. Initializes all graph data.
         """
         self.oid_dictionary = {}
         self.adjacency_list = {}
         self.inter_graph_connections = {}
+        self._creation_transaction_id = transaction_id
         
-    def insert_node_into_graph(self, key, oid, adjacency_list, connections_to_other_graphs):
+    def insert_node_into_graph(self, key, oid, adjacency_list, connections_to_other_graphs, transaction_id):
         """
         Inserts the data for a node into the graph.
 
@@ -39,11 +40,21 @@ class Graph(object):
         if type(connections_to_other_graphs) is not dict:
             raise ValueError("Connections to other graphs require destination graph to be specified.")
 
-        self.oid_dictionary[key] = ray.put(oid)
-        if not key in self.adjacency_list:
-            self.adjacency_list[key] = ray.put(set(adjacency_list))
+        historical_obj = _HistoricalObj(ray.put(oid), transaction_id)
+
+        # if there is not history, start it
+        if not key in self.oid_dictionary:
+            self.oid_dictionary[key] = [historical_obj]
+        # if we have a history here, just append
         else:
-            self.adjacency_list[key] = _add_to_adj_list.remote(self.adjacency_list[key], set(adjacency_list))
+            self.oid_dictionary[key].append(historical_obj)
+
+        if not key in self.adjacency_list:
+            historical_obj = _HistoricalObj(ray.put(set(adjacency_list)), transaction_id)
+            self.adjacency_list[key] = [historical_obj]
+        else:
+            historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.adjacency_list[key], set(adjacency_list)), transaction_id)
+            self.adjacency_list[key].append(historical_obj)
 
         if not key in self.inter_graph_connections:
             self.inter_graph_connections[key] = {}
@@ -51,13 +62,16 @@ class Graph(object):
         for other_graph_id in connections_to_other_graphs:
             if not other_graph_id in self.inter_graph_connections[key]:
                 try:
-                    self.inter_graph_connections[key][other_graph_id] = ray.put(set([connections_to_other_graphs[other_graph_id]]))
+                    historical_obj = _HistoricalObj(ray.put(set([connections_to_other_graphs[other_graph_id]])), transaction_id)
                 except TypeError:
-                    self.inter_graph_connections[key][other_graph_id] = ray.put(set(connections_to_other_graphs[other_graph_id]))
+                    historical_obj = _HistoricalObj(ray.put(set(connections_to_other_graphs[other_graph_id])), transaction_id)
+
+                self.inter_graph_connections[key][other_graph_id] = [historical_obj]
             else:
-                self.inter_graph_connections[key][other_graph_id] = _add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], connections_to_other_graphs[other_graph_id])
+                historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], connections_to_other_graphs[other_graph_id]), transaction_id)
+                self.inter_graph_connections[key][other_graph_id].append(historical_obj)
     
-    def add_new_adjacent_node(self, key, adjacent_node_key):
+    def add_new_adjacent_node(self, key, adjacent_node_key, transaction_id):
         """
         Adds a new connection to the adjacency_list for the key provided.
 
@@ -67,17 +81,13 @@ class Graph(object):
                              added.
         """
         if not key in self.adjacency_list:
-            self.adjacency_list[key] = set([adjacent_node_key])
+            historical_obj = _HistoricalObj(set([adjacent_node_key]), transaction_id)
+            self.adjacency_list[key] = [historical_obj]
         else:
-            self.adjacency_list[key] = _add_to_adj_list.remote(self.adjacency_list[key], adjacent_node_key)
+            historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.adjacency_list[key], adjacent_node_key), transaction_id)
+            self.adjacency_list[key].append(historical_obj)
         
-    def create_inter_graph_connection(self, key):
-        """
-        Initializes the inter_graph_connections for a given identifier.
-        """
-        self.inter_graph_connections[key] = {}
-        
-    def add_inter_graph_connection(self, key, other_graph_id, new_connection):
+    def add_inter_graph_connection(self, key, other_graph_id, new_connection, transaction_id):
         """
         Adds a single new connection to another graph. Because all connections
         are bi-directed, connections are created from the other graph to this
@@ -89,14 +99,16 @@ class Graph(object):
         new_connection -- the identifier of the node for the new connection.
         """
         if not key in self.inter_graph_connections:
-            self.create_inter_graph_connection(key)
+            self.inter_graph_connection[key] = {}
 
         if not other_graph_id in self.inter_graph_connections[key]:
-            self.inter_graph_connections[key][other_graph_id] = ray.put(set([new_connection]))
+            historical_obj = _HistoricalObj(ray.put(set([new_connection])), transaction_id)
+            self.inter_graph_connections[key][other_graph_id] = [historical_obj]
         else:
-            self.inter_graph_connections[key][other_graph_id] = _add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], set([new_connection]))
+            historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], set([new_connection])), transaction_id)
+            self.inter_graph_connections[key][other_graph_id].append(historical_obj)
 
-    def add_multiple_inter_graph_connections(self, key, other_graph_id, new_connection_list):
+    def add_multiple_inter_graph_connections(self, key, other_graph_id, new_connection_list, transaction_id):
         """
         Adds a multiple new connections to another graph. Because all
         connections are bi-directed, connections are created from the other
@@ -109,14 +121,16 @@ class Graph(object):
                                connection.
         """
         if not key in self.inter_graph_connections:
-            self.create_inter_graph_connection(key)
+            self.inter_graph_connections[key] = {}
 
         if not other_graph_id in self.inter_graph_connections[key]:
-            self.inter_graph_connections[key][other_graph_id] = ray.put(set(new_connection_list))
+            historical_obj = _HistoricalObj(ray.put(set(new_connection_list)), transaction_id)
+            self.inter_graph_connections[key][other_graph_id] = [historical_obj]
         else:
-            self.inter_graph_connections[key][other_graph_id] = _add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], set(new_connection_list))
+            historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], set(new_connection_list)), transaction_id)
+            self.inter_graph_connections[key][other_graph_id].append(historical_obj)
 
-    def node_exists(self, key):
+    def node_exists(self, key, transaction_id):
         """
         Determines if a node exists in the graph.
 
@@ -126,9 +140,9 @@ class Graph(object):
         Returns:
         If node exists in graph, returns true, otherwise false.
         """
-        return key in self.oid_dictionary
+        return key in self.oid_dictionary and len(self._get_historical_obj(transaction_id, self.oid_dictionary[key])) > 0
 
-    def get_oid_dictionary(self, key = ""):
+    def get_oid_dictionary(self, transaction_id, key = ""):
         """
         Gets the ObjectID of the Node requested. If none requested, returns the
         full dictionary.
@@ -137,11 +151,17 @@ class Graph(object):
         key -- the unique identifier of the node in the graph (default = "").
         """
         if key == "":
-            return self.oid_dictionary
+            adj = {}
+            for l in self.oid_dictionary:
+                historical_obj = self._get_historical_obj(transaction_id, self.oid_dictionary[l])
+                if len(historical_obj) > 0:
+                    adj[l] = historical_obj[0]
+            return adj
         else:
-            return self.oid_dictionary[key]
+            return self._get_historical_obj(transaction_id, self.oid_dictionary[key])
+            # return self.oid_dictionary[key]
     
-    def get_adjacency_list(self, key = ""):
+    def get_adjacency_list(self, transaction_id, key = ""):
         """
         Gets the connections within this graph of the Node requested. If none
         requested, returns the full dictionary.
@@ -150,11 +170,16 @@ class Graph(object):
         key -- the unique identifier of the node in the graph (default = "").
         """
         if key == "":
-            return self.adjacency_list
+            adj = {}
+            for l in self.adjacency_list:
+                historical_obj = self._get_historical_obj(transaction_id, self.adjacency_list[l])
+                if len(historical_obj) > 0:
+                    adj[l] = historical_obj[0]
+            return adj
         else:
-            return self.adjacency_list[key]
+            return self._get_historical_obj(transaction_id, self.adjacency_list[key])
         
-    def get_inter_graph_connections(self, key = "", other_graph_id = ""):
+    def get_inter_graph_connections(self, transaction_id, key = "", other_graph_id = ""):
         """
         Gets the connections to other graphs of the Node requested. If none
         requested, returns the full dictionary.
@@ -163,12 +188,60 @@ class Graph(object):
         key -- the unique identifier of the node in the graph (default = "").
         """
         if key == "":
-            return self.inter_graph_connections
+            adj = {}
+            for i in self.inter_graph_connections:
+                for l in self.inter_graph_connections[i]:
+                    historical_obj = self._get_historical_obj(transaction_id, self.inter_graph_connections[i][l])
+                    if len(historical_obj) > 0:
+                        # wait to start building until now to ensure that
+                        # there is something to put here
+                        if not i in adj:
+                            adj[i] = {}
+                        adj[i][l] = historical_obj[0]
+            return adj
         elif other_graph_id == "":
-            return self.inter_graph_connections[key]
+            adj = {}
+            for l in self.inter_graph_connections[key]:
+                historical_obj = self._get_historical_obj(transaction_id, self.inter_graph_connections[key][l])
+                if len(historical_obj) > 0:
+                    adj[l] = historical_obj[0]
+            return adj
         else:
-            raise ValueError("Not yet implemented: Getting inter-graph connections for a specific graph")
-            return self.inter_graph_connections[key][other_graph_id]
+            # TODO: Handle Error correctly
+            return self._get_historical_obj(transaction_id, self.inter_graph_connections[key][other_graph_id])
+
+    def _get_historical_obj(self, transaction_id, l):
+        """Gets the correct object from a list of historical objects based on transaction_id.
+
+        Keyword arguments:
+        transaction_id -- the transaction_id to apply.
+        l -- the list of historical objects.
+
+        Returns:
+        A list containing 0 or 1 elements, based on the transaction_id. If
+        there is no record at that particular transaction_id the list will be
+        empty. Otherwise we give the highest transaction_id that is less than
+        the transaction_id provided, wrapped in a list.
+        """
+        filtered = list(filter(lambda p: p.transaction_id <= transaction_id, l))
+        if len(filtered) > 0:
+            return [max(filtered).obj]
+        else:
+            return filtered
+
+class _HistoricalObj(object):
+    """This class serves as the wrapper for historical objects.
+
+    The purpose is to clean up the code and make it simpler to add and delete
+    rows in the database.
+    """
+    def __init__(self, obj, transaction_id):
+        self.obj = obj
+        self.transaction_id = transaction_id
+
+    def __lt__(self, other):
+        self.transaction_id < other.transaction_id
+
 
 @ray.remote
 def _add_to_adj_list(adj_list, other_key):
