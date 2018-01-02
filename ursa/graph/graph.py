@@ -28,7 +28,7 @@ class Graph(object):
         self.inter_graph_connections = {}
         self._creation_transaction_id = transaction_id
         
-    def insert_node_into_graph(self, key, oid, adjacency_list, connections_to_other_graphs, transaction_id):
+    def insert(self, key, oid, adjacency_list, connections_to_other_graphs, transaction_id):
         """
         Inserts the data for a node into the graph.
 
@@ -36,36 +36,87 @@ class Graph(object):
         key -- the unique identifier of the node in the graph.
         oid -- the Ray ObjectID for the Node object referenced by key.
         adjacency_list -- the list of connections within this graph.
+        connections_to_other_graphs -- the connections to the other graphs.
+        transaction_id -- the transaction_id for this update.
         """
         if type(connections_to_other_graphs) is not dict:
             raise ValueError("Connections to other graphs require destination graph to be specified.")
 
         historical_obj = _HistoricalObj(ray.put(oid), transaction_id)
 
-        # if there is not history, start it
+        # if we don't have anything for this key yet, add it as a list
         if not key in self.oid_dictionary:
             self.oid_dictionary[key] = [historical_obj]
-        # if we have a history here, just append
+        # treat this as a database insert, cannot insert with the same key.
         else:
-            self.oid_dictionary[key].append(historical_obj)
+            raise ValueError("Unable to insert, key: " + str(key) + " already exists.")
 
+        self._add_adjacency_info(key, adjacency_list, connections_to_other_graphs, transaction_id)
+
+    def update(self, transaction_id, key, oid = None, adjacency_list_fn = None, adjacency_list_fn_arg = None, connections_to_other_graphs_fn = None, connections_to_other_graphs_fn_arg = None):
+        """Update the graph for the key specified.
+
+        Keyword arguments:
+        key -- the unique identifier of the node in the graph.
+        oid -- the Ray ObjectID for the Node object referenced by key.
+        adjacency_list -- the list of connections within this graph.
+        connections_to_other_graphs -- the connections to the other graphs.
+        transaction_id -- the transaction_id for this update.
+        """
+        if type(connections_to_other_graphs) is not dict:
+            raise ValueError("Connections to other graphs require destination graph to be specified.")
+
+        if oid is not None:
+            historical_obj = _HistoricalObj(ray.put(oid), transaction_id)
+
+            # treat this as a datqabase update, unable to update without existing
+            if not key in self.oid_dictionary:
+                raise ValueError("Unable to update, key: " + str(key) + " does not yet exist.")
+            # since we are keeping everything, just append
+            else:
+                self.oid_dictionary[key].append(historical_obj)
+
+        if adjacency_list_fn is not None:
+            historical_obj = _HistoricalObj(_deploy_adj_fn(adjacency_list_fn, self.adjacency_list[key], adjacency_list_fn_arg), transaction_id)
+            if key not in self.adjacency_list:
+                self.adjacency_list[key] = [historical_obj]
+            else:
+                self.adjacency_list[key].append(historical_obj)
+
+        if connections_to_other_graphs_fn is not None:
+            historical_obj = _HistoricalObj(_deploy_adj_fn(connections_to_other_graphs_fn, self.inter_graph_connections[key], connections_to_other_graphs_fn_arg), transaction_id)
+            if key not in self.inter_graph_connections:
+                self.inter_graph_connections[key] = [historical_obj]
+            self.inter_graph_connections[key].append(historical_obj, transaction_id)
+
+        # self._add_adjacency_info(key, adjacency_list, connections_to_other_graphs, transaction_id)
+
+    def _add_adjacency_info(self, key, adjacency_list, connections_to_other_graphs, transaction_id):
+        
         if not key in self.adjacency_list:
             historical_obj = _HistoricalObj(ray.put(set(adjacency_list)), transaction_id)
             self.adjacency_list[key] = [historical_obj]
+        # because we allow links to nodes that don't exist, this is possible
+        # also, possible in the case of updates
         else:
             historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.adjacency_list[key], set(adjacency_list)), transaction_id)
             self.adjacency_list[key].append(historical_obj)
 
         if not key in self.inter_graph_connections:
             self.inter_graph_connections[key] = {}
-        
+
+        # the way that the connections to other graphs are stored is important
+        # to maintain asynchrony, we have to store it as a dict of dicts        
         for other_graph_id in connections_to_other_graphs:
             if not other_graph_id in self.inter_graph_connections[key]:
+                # works if we have only a single connection
                 try:
                     historical_obj = _HistoricalObj(ray.put(set([connections_to_other_graphs[other_graph_id]])), transaction_id)
+                # hits here if we were passed a list
                 except TypeError:
                     historical_obj = _HistoricalObj(ray.put(set(connections_to_other_graphs[other_graph_id])), transaction_id)
 
+                # for the first time, we start the history
                 self.inter_graph_connections[key][other_graph_id] = [historical_obj]
             else:
                 historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], connections_to_other_graphs[other_graph_id]), transaction_id)
@@ -240,8 +291,15 @@ class _HistoricalObj(object):
         self.transaction_id = transaction_id
 
     def __lt__(self, other):
-        self.transaction_id < other.transaction_id
+        return self.transaction_id < other.transaction_id
 
+
+@ray.remote
+def _deploy_adj_fn(fn, adj_list, other):
+    if other is not None:
+        return fn(adj_list, other)
+    else:
+        return fn(adj_list)
 
 @ray.remote
 def _add_to_adj_list(adj_list, other_key):

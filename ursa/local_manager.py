@@ -23,9 +23,9 @@ class Graph_manager(object):
         """
         Updates the transaction ID with that of the global graph manager.
         """
+        pass
 
-
-    def add_graph(self, graph_id):
+    def create_graph(self, graph_id):
         """
         Create an empty graph.
 
@@ -40,7 +40,7 @@ class Graph_manager(object):
             raise ValueError("Graph name already exists.")
         self.graph_dict[graph_id] = ug.Graph.remote(self._current_transaction_id)
         
-    def add_node_to_graph(self, graph_id, key, node, adjacency_list = set(), connections_to_other_graphs = {}):
+    def insert(self, graph_id, key, node, adjacency_list = set(), connections_to_other_graphs = {}):
         """
         Adds data to the graph specified.
 
@@ -49,6 +49,7 @@ class Graph_manager(object):
         key -- the unique identifier of this data in the graph.
         node -- the data to add to the graph.
         adjacency_list -- a list of connected nodes, if any (default = set()).
+        connections_to_other_graphs -- the connections to other graphs for this node.
         """
         self._current_transaction_id += 1
 
@@ -57,7 +58,7 @@ class Graph_manager(object):
 
         if graph_id not in self.graph_dict:
             print("Warning:", str(graph_id), "is not yet in this Graph Collection. Creating...")
-            self.add_graph(graph_id)
+            self.create_graph(graph_id)
 
         _add_node_to_graph.remote(self.graph_dict[graph_id],
                                   graph_id,
@@ -75,8 +76,8 @@ class Graph_manager(object):
 
         for other_graph_id in connections_to_other_graphs:
             if not other_graph_id in self.graph_dict:
-                print("Warning:", str(new_conn), "is not yet in this Graph Collection. Creating...")
-                self.add_graph(other_graph_id)
+                print("Warning:", str(other_graph_id), "is not yet in this Graph Collection. Creating...")
+                self.create_graph(other_graph_id)
 
             try:
                 connections_to_this_graph = set([connections_to_other_graphs[other_graph_id]])
@@ -88,6 +89,32 @@ class Graph_manager(object):
                                                   graph_id,
                                                   connections_to_this_graph,
                                                   self._current_transaction_id)
+
+    def update(self, graph_id, key, node = None, adjacency_list = set(), connections_to_other_graphs = {}):
+        """Updates the graph specified.
+
+        Keyword arguments:
+        graph_id -- the unique name of the graph.
+        key -- the unique identifier of this data in the graph.
+        node -- the data to add to the graph.
+        adjacency_list -- a list of connected nodes, if any (default = set()).
+        connections_to_other_graphs -- the connections to other graphs for this node.
+        """
+        self._current_transaction_id += 1
+
+        if type(connections_to_other_graphs) is not dict:
+            raise ValueError("Connections between graphs must be labeled with a destination graph.")
+
+        if graph_id not in self.graph_dict:
+            raise ValueError("Cannot update. Requested graph: " + str(graph_id) + " does not yet exist.")
+
+        if node is not None:
+            self.graph_dict[graph_id].update
+        if node is None and adjacency_list == set() and connections_to_other_graphs == {}:
+            raise ValueError("Cannot update. Nothing specified.")
+
+
+
 
     def append_to_connections(self, graph_id, key, adjacent_node_key):
         """
@@ -238,7 +265,7 @@ def _add_node_to_graph(graph, graph_id, key, node, adjacency_list, connections_t
     node -- the Node object to add to the graph.
     adjacency_list -- the list of connections within this graph.
     """
-    graph.insert_node_into_graph.remote(key, node, adjacency_list, connections_to_other_graphs, transaction_id)
+    graph.insert.remote(key, node, adjacency_list, connections_to_other_graphs, transaction_id)
 
 @ray.remote
 def _add_back_edges_within_graph(graph, graph_id, key, new_connection_list, transaction_id):
@@ -252,8 +279,9 @@ def _add_back_edges_within_graph(graph, graph_id, key, new_connection_list, tran
     key -- the unique identifier of the Node to connect back edges to.
     new_connection_list -- the list of connections to create back edges for.
     """
+
     for new_conn in new_connection_list:
-        graph.add_new_adjacent_node.remote(key, new_conn, transaction_id)
+        graph.update.remote(transaction_id, key, adjacency_list_fn = _append_to_list_fn, adjacency_list_fn_arg = new_conn)
 
 @ray.remote
 def _add_back_edges_between_graphs(other_graph, key, graph_id, collection_of_other_graph_keys, transaction_id):
@@ -268,5 +296,15 @@ def _add_back_edges_between_graphs(other_graph, key, graph_id, collection_of_oth
     graph_id -- the unique identifier of the graph to connect to.
     collection_of_other_graph_keys -- the keys in other_graph to connect to key.
     """
-    for other_graph_key in collection_of_other_graph_keys:
-        other_graph.add_inter_graph_connection.remote(other_graph_key, graph_id, key, transaction_id)
+    def fn(old_list, new_list):
+        for k in new_list:
+            old_list[graph_id][k].update(set(key))
+
+    # for other_graph_key in collection_of_other_graph_keys:
+    other_graph.update.remote(transaction_id, other_graph_key, connections_to_other_graphs_fn = fn, connections_to_other_graphs_fn_arg = collection_of_other_graph_keys)
+
+def _append_to_list_fn(old_list, new_list):
+    try:
+        return old_list.update(set([new_list]))
+    except ValueError:
+        return old_list.update(set(new_list))
