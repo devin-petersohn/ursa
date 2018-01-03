@@ -1,3 +1,4 @@
+import copy
 import ray
 
 @ray.remote
@@ -23,167 +24,68 @@ class Graph(object):
         """
         The constructor for the Graph object. Initializes all graph data.
         """
-        self.oid_dictionary = {}
-        self.adjacency_list = {}
-        self.inter_graph_connections = {}
+        self.rows = {}
         self._creation_transaction_id = transaction_id
         
-    def insert(self, key, oid, adjacency_list, connections_to_other_graphs, transaction_id):
+    def insert(self, key, oid, local_keys, foreign_keys, transaction_id):
         """
         Inserts the data for a node into the graph.
 
         Keyword arguments:
         key -- the unique identifier of the node in the graph.
         oid -- the Ray ObjectID for the Node object referenced by key.
-        adjacency_list -- the list of connections within this graph.
-        connections_to_other_graphs -- the connections to the other graphs.
+        local_keys -- the list of connections within this graph.
+        foreign_keys -- the connections to the other graphs.
         transaction_id -- the transaction_id for this update.
         """
-        if type(connections_to_other_graphs) is not dict:
-            raise ValueError("Connections to other graphs require destination graph to be specified.")
+        if type(foreign_keys) is not dict:
+            raise ValueError("Connections to other graphs require destination graph to be specified, Please pass in a dictionary.")
 
-        historical_obj = _HistoricalObj(ray.put(oid), transaction_id)
-
-        # if we don't have anything for this key yet, add it as a list
-        if not key in self.oid_dictionary:
-            self.oid_dictionary[key] = [historical_obj]
-        # treat this as a database insert, cannot insert with the same key.
+        if not key in self.rows:
+            self.rows[key] = [_GraphRow(oid, local_keys, foreign_keys, transaction_id)]
         else:
-            raise ValueError("Unable to insert, key: " + str(key) + " already exists.")
-
-        self._add_adjacency_info(key, adjacency_list, connections_to_other_graphs, transaction_id)
-
-    def update(self, transaction_id, key, oid = None, adjacency_list_fn = None, adjacency_list_fn_arg = None, connections_to_other_graphs_fn = None, connections_to_other_graphs_fn_arg = None):
-        """Update the graph for the key specified.
-
-        Keyword arguments:
-        key -- the unique identifier of the node in the graph.
-        oid -- the Ray ObjectID for the Node object referenced by key.
-        adjacency_list -- the list of connections within this graph.
-        connections_to_other_graphs -- the connections to the other graphs.
-        transaction_id -- the transaction_id for this update.
-        """
-        if type(connections_to_other_graphs) is not dict:
-            raise ValueError("Connections to other graphs require destination graph to be specified.")
-
-        if oid is not None:
-            historical_obj = _HistoricalObj(ray.put(oid), transaction_id)
-
-            # treat this as a datqabase update, unable to update without existing
-            if not key in self.oid_dictionary:
-                raise ValueError("Unable to update, key: " + str(key) + " does not yet exist.")
-            # since we are keeping everything, just append
-            else:
-                self.oid_dictionary[key].append(historical_obj)
-
-        if adjacency_list_fn is not None:
-            historical_obj = _HistoricalObj(_deploy_adj_fn(adjacency_list_fn, self.adjacency_list[key], adjacency_list_fn_arg), transaction_id)
-            if key not in self.adjacency_list:
-                self.adjacency_list[key] = [historical_obj]
-            else:
-                self.adjacency_list[key].append(historical_obj)
-
-        if connections_to_other_graphs_fn is not None:
-            historical_obj = _HistoricalObj(_deploy_adj_fn(connections_to_other_graphs_fn, self.inter_graph_connections[key], connections_to_other_graphs_fn_arg), transaction_id)
-            if key not in self.inter_graph_connections:
-                self.inter_graph_connections[key] = [historical_obj]
-            self.inter_graph_connections[key].append(historical_obj, transaction_id)
-
-        # self._add_adjacency_info(key, adjacency_list, connections_to_other_graphs, transaction_id)
-
-    def _add_adjacency_info(self, key, adjacency_list, connections_to_other_graphs, transaction_id):
-        
-        if not key in self.adjacency_list:
-            historical_obj = _HistoricalObj(ray.put(set(adjacency_list)), transaction_id)
-            self.adjacency_list[key] = [historical_obj]
-        # because we allow links to nodes that don't exist, this is possible
-        # also, possible in the case of updates
-        else:
-            historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.adjacency_list[key], set(adjacency_list)), transaction_id)
-            self.adjacency_list[key].append(historical_obj)
-
-        if not key in self.inter_graph_connections:
-            self.inter_graph_connections[key] = {}
-
-        # the way that the connections to other graphs are stored is important
-        # to maintain asynchrony, we have to store it as a dict of dicts        
-        for other_graph_id in connections_to_other_graphs:
-            if not other_graph_id in self.inter_graph_connections[key]:
-                # works if we have only a single connection
-                try:
-                    historical_obj = _HistoricalObj(ray.put(set([connections_to_other_graphs[other_graph_id]])), transaction_id)
-                # hits here if we were passed a list
-                except TypeError:
-                    historical_obj = _HistoricalObj(ray.put(set(connections_to_other_graphs[other_graph_id])), transaction_id)
-
-                # for the first time, we start the history
-                self.inter_graph_connections[key][other_graph_id] = [historical_obj]
-            else:
-                historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], connections_to_other_graphs[other_graph_id]), transaction_id)
-                self.inter_graph_connections[key][other_graph_id].append(historical_obj)
+            temp_row = self.rows[key][-1].update_oid(oid, transaction_id)
+            temp_row = temp_row.add_local_keys(transaction_id, local_keys)
+            temp_row = temp_row.add_foreign_keys(transaction_id, foreign_keys)
+            self.rows[key].append(temp_row)
     
-    def add_new_adjacent_node(self, key, adjacent_node_key, transaction_id):
+    def _create_or_update_row(self, key, graph_row):
+        """Creates or updates the row with the key provided.
         """
-        Adds a new connection to the adjacency_list for the key provided.
-
-        Keyword arguments:
-        key -- the unique identifier of the node in the graph.
-        adjacent_node_key -- the unique identifier of the new connection to be
-                             added.
-        """
-        if not key in self.adjacency_list:
-            historical_obj = _HistoricalObj(set([adjacent_node_key]), transaction_id)
-            self.adjacency_list[key] = [historical_obj]
+        if not key in self.rows:
+            self.rows[key] = [graph_row]
+        elif graph_row.transaction_id == self.rows[key][-1].transaction_id:
+            # reassignment here because this is an update from within the
+            # same transaction
+            self.rows[key][-1] = graph_row
+        elif graph_row.transaction_id > self.rows[key][-1].transaction_id:
+            self.rows[key].append(graph_row)
         else:
-            historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.adjacency_list[key], adjacent_node_key), transaction_id)
-            self.adjacency_list[key].append(historical_obj)
+            raise ValueError("Transactions arrived out of order.")
+
+    def add_local_keys(self, transaction_id, key, *local_keys):
+        """Adds one or more local keys.
+        """
+        raise ValueError(str(type(key)))
+        if key not in self.rows:
+            graph_row = _GraphRow().add_local_keys(transaction_id, local_keys)
+        else:
+            graph_row = self.rows[key][-1].add_local_keys(transaction_id, local_keys)
         
-    def add_inter_graph_connection(self, key, other_graph_id, new_connection, transaction_id):
-        """
-        Adds a single new connection to another graph. Because all connections
-        are bi-directed, connections are created from the other graph to this
-        one also.
+        self._create_or_update_row(key, graph_row)
 
-        Keyword arguments:
-        key -- the unique identifier of the node in the graph.
-        other_graph_id -- the name of the graph for the new connection.
-        new_connection -- the identifier of the node for the new connection.
+    def add_foreign_keys(self, transaction_id, key, graph_id, *foreign_keys):
+        """Adds one of more foreign keys.
         """
-        if not key in self.inter_graph_connections:
-            self.inter_graph_connection[key] = {}
-
-        if not other_graph_id in self.inter_graph_connections[key]:
-            historical_obj = _HistoricalObj(ray.put(set([new_connection])), transaction_id)
-            self.inter_graph_connections[key][other_graph_id] = [historical_obj]
+        if key not in self.rows:
+            graph_row = _GraphRow().add_foreign_keys(transaction_id, {graph_id: foreign_keys})
         else:
-            historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], set([new_connection])), transaction_id)
-            self.inter_graph_connections[key][other_graph_id].append(historical_obj)
+            graph_row = self.rows[key][-1].add_foreign_keys(transaction_id, {graph_id: foreign_keys})
 
-    def add_multiple_inter_graph_connections(self, key, other_graph_id, new_connection_list, transaction_id):
-        """
-        Adds a multiple new connections to another graph. Because all
-        connections are bi-directed, connections are created from the other
-        graph to this one also.
+        self._create_or_update_row(key, graph_row)
 
-        Keyword arguments:
-        key -- the unique identifier of the node in the graph.
-        other_graph_id -- the name of the graph for the new connection.
-        new_connection_list -- the list of identifiers of the node for the new
-                               connection.
-        """
-        if not key in self.inter_graph_connections:
-            self.inter_graph_connections[key] = {}
-
-        if not other_graph_id in self.inter_graph_connections[key]:
-            historical_obj = _HistoricalObj(ray.put(set(new_connection_list)), transaction_id)
-            self.inter_graph_connections[key][other_graph_id] = [historical_obj]
-        else:
-            historical_obj = _HistoricalObj(_add_to_adj_list.remote(self.inter_graph_connections[key][other_graph_id], set(new_connection_list)), transaction_id)
-            self.inter_graph_connections[key][other_graph_id].append(historical_obj)
-
-    def node_exists(self, key, transaction_id):
-        """
-        Determines if a node exists in the graph.
+    def row_exists(self, key, transaction_id):
+        """True if the node existed at the time provided, False otherwise.
 
         Keyword arguments:
         key -- the unique identifier of the node in the graph.
@@ -191,135 +93,172 @@ class Graph(object):
         Returns:
         If node exists in graph, returns true, otherwise false.
         """
-        return key in self.oid_dictionary and len(self._get_historical_obj(transaction_id, self.oid_dictionary[key])) > 0
+        return key in self.rows and self._get_history(transaction_id, key).node_exists()
 
-    def get_oid_dictionary(self, transaction_id, key = ""):
+    def select_row(self, transaction_id, key = None):
+        """Selects the row with the key given at the time given
         """
-        Gets the ObjectID of the Node requested. If none requested, returns the
-        full dictionary.
+        return self.select(transaction_id, "oid", key)
 
-        Keyword arguments:
-        key -- the unique identifier of the node in the graph (default = "").
+    def select_local_keys(self, transaction_id, key = None):
+        """Gets the local keys for the key and time provided.
         """
-        if key == "":
-            adj = {}
-            for l in self.oid_dictionary:
-                historical_obj = self._get_historical_obj(transaction_id, self.oid_dictionary[l])
-                if len(historical_obj) > 0:
-                    adj[l] = historical_obj[0]
-            return adj
-        else:
-            return self._get_historical_obj(transaction_id, self.oid_dictionary[key])
-            # return self.oid_dictionary[key]
-    
-    def get_adjacency_list(self, transaction_id, key = ""):
-        """
-        Gets the connections within this graph of the Node requested. If none
-        requested, returns the full dictionary.
+        return self.select(transaction_id, "local_keys", key)
 
-        Keyword arguments:
-        key -- the unique identifier of the node in the graph (default = "").
+    def select_foreign_keys(self, transaction_id, key = None):
+        """Gets the foreign keys for the key and time provided.
         """
-        if key == "":
-            adj = {}
-            for l in self.adjacency_list:
-                historical_obj = self._get_historical_obj(transaction_id, self.adjacency_list[l])
-                if len(historical_obj) > 0:
-                    adj[l] = historical_obj[0]
-            return adj
-        else:
-            return self._get_historical_obj(transaction_id, self.adjacency_list[key])
+        return self.select(transaction_id, "foreign_keys", key)
         
-    def get_inter_graph_connections(self, transaction_id, key = "", other_graph_id = ""):
+    def select(self, transaction_id, prop, key = None):
+        """Selects the property given at the time given.
         """
-        Gets the connections to other graphs of the Node requested. If none
-        requested, returns the full dictionary.
-
-        Keyword arguments:
-        key -- the unique identifier of the node in the graph (default = "").
-        """
-        if key == "":
-            adj = {}
-            for i in self.inter_graph_connections:
-                for l in self.inter_graph_connections[i]:
-                    historical_obj = self._get_historical_obj(transaction_id, self.inter_graph_connections[i][l])
-                    if len(historical_obj) > 0:
-                        # wait to start building until now to ensure that
-                        # there is something to put here
-                        if not i in adj:
-                            adj[i] = {}
-                        adj[i][l] = historical_obj[0]
-            return adj
-        elif other_graph_id == "":
-            adj = {}
-            for l in self.inter_graph_connections[key]:
-                historical_obj = self._get_historical_obj(transaction_id, self.inter_graph_connections[key][l])
-                if len(historical_obj) > 0:
-                    adj[l] = historical_obj[0]
-            return adj
+        if key is None:
+            rows = {}
+            for key in self.rows:
+                row_at_time = self._get_history(transaction_id, key)
+                if row_at_time.node_exists():
+                    rows[key] = getattr(row_at_time, prop)
+            return rows
         else:
-            # TODO: Handle Error correctly
-            return self._get_historical_obj(transaction_id, self.inter_graph_connections[key][other_graph_id])
+            if not key in self.rows:
+                raise ValueError("Key Error. Row does not exist.")
+            
+            obj = self._get_history(transaction_id, key)
+            return getattr(obj, prop)
 
-    def _get_historical_obj(self, transaction_id, l):
-        """Gets the correct object from a list of historical objects based on transaction_id.
+    def _get_history(self, transaction_id, key):
+        """Gets the historical state of the object with the key provided.
+        """
+        filtered = list(filter(lambda p: p._transaction_id <= transaction_id, self.rows[key]))
+        if len(filtered) > 0:
+            return filtered[-1]
+        else:
+            return _GraphRow()
+
+
+class _GraphRow(object):
+    """Contains all data for a row of the Graph Database.
+
+    Fields:
+    oid -- The ray ObjectID for the data in the row.
+    local_keys -- Edges within the same graph. This is a set of ray ObjectIDs.
+    foreign_keys -- Edges between graphs. This is a dict: {graph_id: ObjectID}.
+    _transaction_id -- The transaction_id that generated this row.
+    """
+    def __init__(self, oid = None, local_keys = set(), foreign_keys = {}, transaction_id = -1):
+        self.oid = oid
+        self.local_keys = local_keys
+        self.foreign_keys = foreign_keys
+        self._transaction_id = transaction_id
+
+    def filter_local_keys(self, filterfn, transaction_id):
+        """Filter the local keys based on the provided filter function.
 
         Keyword arguments:
-        transaction_id -- the transaction_id to apply.
-        l -- the list of historical objects.
+        filterfn -- The function to use to filter the keys.
+        transaction_id -- The system provdided transaction id number.
 
         Returns:
-        A list containing 0 or 1 elements, based on the transaction_id. If
-        there is no record at that particular transaction_id the list will be
-        empty. Otherwise we give the highest transaction_id that is less than
-        the transaction_id provided, wrapped in a list.
+        A new _GraphRow object containing the filtered keys.
         """
-        filtered = list(filter(lambda p: p.transaction_id <= transaction_id, l))
-        if len(filtered) > 0:
-            return [max(filtered).obj]
+        assert transaction_id >= self._transaction_id, "Transactions arrived out of order."
+        
+        return self.copy(local_keys = _apply_filter.remote(filterfn, self.local_keys), transaction_id = transaction_id)
+
+    def filter_foreign_keys(self, filterfn, transaction_id, *graph_ids):
+        """Filter the foreign keys keys based on the provided filter function.
+
+        Keyword arguments:
+        filterfn -- The function to use to filter the keys.
+        transaction_id -- The system provdided transaction id number.
+        graph_ids -- One or more graph ids to apply the filter to.
+
+        Returns:
+        A new _GraphRow object containing the filtered keys.
+        """
+        assert transaction_id >= self._transaction_id, "Transactions arrived out of order."
+
+        if transaction_id > self._transaction_id:
+            new_keys = copy.deepcopy(self.foreign_keys)
         else:
-            return filtered
+            new_keys = self.foreign_keys
 
-class _HistoricalObj(object):
-    """This class serves as the wrapper for historical objects.
+        for graph_id in graph_ids:
+            new_keys[graph_id] = _apply_filter.remote(filterfn, new_keys[graph_id])
 
-    The purpose is to clean up the code and make it simpler to add and delete
-    rows in the database.
-    """
-    def __init__(self, obj, transaction_id):
-        self.obj = obj
-        self.transaction_id = transaction_id
+        return self.copy(foreign_keys = new_keys, transaction_id = transaction_id)
 
-    def __lt__(self, other):
-        return self.transaction_id < other.transaction_id
+    def add_local_keys(self, transaction_id, *values):
+        """Append to the local keys based on the provided.
 
+        Keyword arguments:
+        transaction_id -- The system provdided transaction id number.
+        values -- One or more values to append to the local keys.
+
+        Returns:
+        A new _GraphRow object containing the appended keys.
+        """
+        assert transaction_id >= self._transaction_id, "Transactions arrived out of order."
+
+        return self.copy(local_keys = _apply_append.remote(self.local_keys, values), transaction_id = transaction_id)
+
+    def add_foreign_keys(self, transaction_id, values):
+        """Append to the local keys based on the provided.
+
+        Keyword arguments:
+        transaction_id -- The system provdided transaction id number.
+        values -- A dict of {graph_id: set(keys)}.
+
+        Returns:
+        A new _GraphRow object containing the appended keys.
+        """
+        assert transaction_id >= self._transaction_id, "Transactions arrived out of order."
+        assert type(values) is dict, "Foreign keys must be dicts: {destination_graph: key}"
+
+        if transaction_id > self._transaction_id:
+            new_keys = copy.deepcopy(self.foreign_keys)
+        else:
+            new_keys = self.foreign_keys
+
+        for graph_id in values:
+            if graph_id not in new_keys:
+                new_keys[graph_id] = values[graph_id]
+            else:
+                new_keys[graph_id] = _apply_append.remote(new_keys[graph_id], values[graph_id])
+
+        return self.copy(foreign_keys = new_keys, transaction_id = transaction_id)
+
+    def copy(self, oid = None, local_keys = None, foreign_keys = None, transaction_id = None):
+        """Create a copy of this object and replace the provided fields.
+        """
+        if oid is None:
+            oid = self.oid
+        if local_keys is None:
+            local_keys = self.local_keys
+        if foreign_keys is None:
+            foreign_keys = self.foreign_keys
+        if transaction_id is None:
+            transaction_id = self._transaction_id
+
+        return _GraphRow(oid, local_keys, foreign_keys, transaction_id)
+
+    def node_exists(self):
+        """True if oid is not None, false otherwise.
+        """
+        return self.oid is not None
 
 @ray.remote
-def _deploy_adj_fn(fn, adj_list, other):
-    if other is not None:
-        return fn(adj_list, other)
-    else:
-        return fn(adj_list)
+def _apply_filter(filterfn, obj_to_filter):
+    return set(filter(filterfn, obj_to_filter))
 
 @ray.remote
-def _add_to_adj_list(adj_list, other_key):
-    """
-    Adds one or multiple keys to the list provided. This can add to both the
-    adjacency list and the connections between graphs.
-
-    The need for this stems from trying to make updates to the graph as
-    asynchronous as possible.
-
-    Keyword arguments:
-    adj_list -- the list of connections to append to.
-    other_key -- a set of connections or a single value to add to adj_list.
-
-    Returns:
-    The updated list containing the newly added value(s).
-    """
+def _apply_append(collection, values):
     try:
-        adj_list.update(set([other_key]))
-    except TypeError:
-        adj_list.update(set(other_key))
-    
-    return adj_list
+        collection.update(values)
+        return collection
+    except ValueError:
+        for val in values:
+            collection.update(val)
+
+        return collection
