@@ -48,17 +48,30 @@ class Graph(object):
             temp_row = temp_row.add_local_keys(transaction_id, local_keys)
             temp_row = temp_row.add_foreign_keys(transaction_id, foreign_keys)
             self.rows[key].append(temp_row)
+
+    def delete(self, key, transaction_id):
+        """
+        Deletes the data for a node in the graph.
+
+        Keyword arguments:
+        key -- the unique identifier of the node in the graph.
+        oid -- the Ray ObjectID for the Node object referenced by key.
+        local_keys -- the list of connections within this graph.
+        foreign_keys -- the connections to the other graphs.
+        transaction_id -- the transaction_id for this update.
+        """
+        self._create_or_update_row(key, _DeletedGraphRow(transaction_id))
     
     def _create_or_update_row(self, key, graph_row):
         """Creates or updates the row with the key provided.
         """
         if not key in self.rows:
             self.rows[key] = [graph_row]
-        elif graph_row.transaction_id == self.rows[key][-1].transaction_id:
+        elif graph_row._transaction_id == self.rows[key][-1]._transaction_id:
             # reassignment here because this is an update from within the
             # same transaction
             self.rows[key][-1] = graph_row
-        elif graph_row.transaction_id > self.rows[key][-1].transaction_id:
+        elif graph_row._transaction_id > self.rows[key][-1]._transaction_id:
             self.rows[key].append(graph_row)
         else:
             raise ValueError("Transactions arrived out of order.")
@@ -247,6 +260,12 @@ class _GraphRow(object):
         """True if oid is not None, false otherwise.
         """
         return self.oid is not None
+
+class _DeletedGraphRow(_GraphRow):
+    """Contains all data for a deleted row.
+    """
+    def __init__(self, transaction_id):
+        super(_DeletedGraphRow, self).__init__(transaction_id = transaction_id)
 
 @ray.remote
 def _apply_filter(filterfn, obj_to_filter):

@@ -61,14 +61,8 @@ class Graph_manager(object):
             print("Warning:", str(graph_id), "is not yet in this Graph Collection. Creating...")
             self.create_graph(graph_id, new_transaction = False)
 
-        _insert_into.remote(self.graph_dict[graph_id],
-                            graph_id,
-                            key,
-                            node,
-                            local_keys,
-                            foreign_keys,
-                            self._current_transaction_id)
-
+        self.graph_dict[graph_id].insert.remote(key, node, local_keys, foreign_keys, self._current_transaction_id)
+        
         _add_local_key_back_edges.remote(self._current_transaction_id,
                                          self.graph_dict[graph_id],
                                          key,
@@ -85,6 +79,13 @@ class Graph_manager(object):
                                                graph_id,
                                                foreign_keys[other_graph_id])
 
+    def delete_row(self, graph_id, key):
+        """Deletes the user specified row and all associated edges
+        """
+        self._current_transaction_id += 1
+
+        self.graph_dict[graph_id].delete.remote(key, self._current_transaction_id)
+
     def add_local_keys(self, graph_id, key, *local_keys):
         """Adds one or more local keys to the graph and key provided.
         """
@@ -97,12 +98,13 @@ class Graph_manager(object):
         """Adds one or more foreign keys to the graph and key provided.
         """
         self._current_transaction_id += 1
+
         self.graph_dict[graph_id].add_foreign_keys.remote(self._current_transaction_id, 
             key, 
             other_graph_id, 
             *foreign_keys)
 
-        _add_foreign_key_back_edges(self._current_transaction_id, 
+        _add_foreign_key_back_edges(self._current_transaction_id,
             self.graph_dict[other_graph_id], 
             key, 
             graph_id, 
@@ -142,20 +144,6 @@ class Graph_manager(object):
         The Graph object for the graph requested.
         """
         return self.graph_dict[graph_id]
-
-@ray.remote
-def _insert_into(graph, graph_id, key, node, adjacency_list, connections_to_other_graphs, transaction_id):
-    """
-    Adds a node to the graph provided and associates it with the connections.
-
-    Keyword arguments:
-    graph -- the Graph object to add the node to.
-    graph_id -- the unique identifier of the Graph provided.
-    key -- the unique identifier of the node provided.
-    node -- the Node object to add to the graph.
-    adjacency_list -- the list of connections within this graph.
-    """
-    graph.insert.remote(key, node, adjacency_list, connections_to_other_graphs, transaction_id)
 
 @ray.remote
 def _add_local_key_back_edges(transaction_id, graph, key, local_keys):
