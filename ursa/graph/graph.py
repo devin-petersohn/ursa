@@ -161,7 +161,18 @@ class _GraphRow(object):
     """
     def __init__(self, oid = None, local_keys = set(), foreign_keys = {}, transaction_id = -1):
         self.oid = oid
-        self.local_keys = local_keys
+
+        try:
+            self.local_keys = set([local_keys])
+        except TypeError:
+            self.local_keys = set(local_keys)
+
+        for key in foreign_keys:
+            try:
+                foreign_keys[key] = set([foreign_keys[key]])
+            except TypeError:
+                foreign_keys[key] = set(foreign_keys[key])
+
         self.foreign_keys = foreign_keys
         self._transaction_id = transaction_id
 
@@ -236,7 +247,10 @@ class _GraphRow(object):
 
         for graph_id in values:
             if graph_id not in new_keys:
-                new_keys[graph_id] = values[graph_id]
+                try:
+                    new_keys[graph_id] = set([values[graph_id]])
+                except TypeError:
+                    new_keys[graph_id] = set(values[graph_id])
             else:
                 new_keys[graph_id] = _apply_append.remote(new_keys[graph_id], values[graph_id])
 
