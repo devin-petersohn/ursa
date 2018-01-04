@@ -4,11 +4,16 @@ ray.init()
 
 manager = ursa.Graph_manager()
 manager.create_graph("Test Graph")
-manager.insert("Test Graph", "Key1", "Data1", foreign_keys = {'FK1':'test test test'})
+manager.insert("Test Graph", "Key1", "Data1",
+               foreign_keys={'FK1': 'test test test'})
 manager.insert("Test Graph", "Key2", "Data2")
-assert ray.get(manager.select_row("Test Graph")) == {'Key2': 'Data2', 'Key1': 'Data1'}
-assert ray.get(manager.select_local_keys("Test Graph")) == {'Key1': set([]), 'Key2': set([])}
-assert ray.get(manager.select_foreign_keys("Test Graph")) == {'Key1': {'FK1':set(['test test test'])}, 'Key2': {}}
+
+assert ray.get(manager.select_row("Test Graph")) == \
+    {'Key2': 'Data2', 'Key1': 'Data1'}
+assert ray.get(manager.select_local_keys("Test Graph")) == \
+    {'Key1': set([]), 'Key2': set([])}
+assert ray.get(manager.select_foreign_keys("Test Graph")) == \
+    {'Key1': {'FK1': set(['test test test'])}, 'Key2': {}}
 
 manager.delete_row("Test Graph", "Key1")
 assert ray.get(manager.select_row("Test Graph")) == {'Key2': 'Data2'}

@@ -1,35 +1,24 @@
 import copy
 import ray
 
+
 @ray.remote
 class Graph(object):
     """
     This object contains reference and connection information for a graph.
 
     Fields:
-    oid_dictionary -- the dictionary mapping the unique identifier of a node to
-                      the ObjectID of the Node object stored in the Ray object
-                      store.
-    adjacency_list -- the dictionary mapping the unique identifier of a node to
-                      an ObjectID of the set of connections within the graph.
-                      The set of connections is built asynchronously.
-    inter_graph_connections -- the dictionary mapping the unique identifier of
-                               a node to the ObjectID of the set of connections
-                               between graphs. The set of connections between
-                               graphs is a dictionary {graph_id -> other_graph_key}
-                               and is built asynchronously.
+    rows -- The dictionary of _GraphRow objects.
     """
-    
+
     def __init__(self, transaction_id):
-        """
-        The constructor for the Graph object. Initializes all graph data.
+        """The constructor for the Graph object. Initializes all graph data.
         """
         self.rows = {}
         self._creation_transaction_id = transaction_id
-        
+
     def insert(self, key, oid, local_keys, foreign_keys, transaction_id):
-        """
-        Inserts the data for a node into the graph.
+        """Inserts the data for a node into the graph.
 
         Keyword arguments:
         key -- the unique identifier of the node in the graph.
@@ -39,10 +28,12 @@ class Graph(object):
         transaction_id -- the transaction_id for this update.
         """
         if type(foreign_keys) is not dict:
-            raise ValueError("Connections to other graphs require destination graph to be specified, Please pass in a dictionary.")
+            raise ValueError(
+                "Foreign keys require destination graph to be specified.")
 
-        if not key in self.rows:
-            self.rows[key] = [_GraphRow(oid, local_keys, foreign_keys, transaction_id)]
+        if key not in self.rows:
+            self.rows[key] = \
+                [_GraphRow(oid, local_keys, foreign_keys, transaction_id)]
         else:
             temp_row = self.rows[key][-1].update_oid(oid, transaction_id)
             temp_row = temp_row.add_local_keys(transaction_id, local_keys)
@@ -50,8 +41,7 @@ class Graph(object):
             self.rows[key].append(temp_row)
 
     def delete(self, key, transaction_id):
-        """
-        Deletes the data for a node in the graph.
+        """Deletes the data for a node in the graph.
 
         Keyword arguments:
         key -- the unique identifier of the node in the graph.
@@ -61,11 +51,11 @@ class Graph(object):
         transaction_id -- the transaction_id for this update.
         """
         self._create_or_update_row(key, _DeletedGraphRow(transaction_id))
-    
+
     def _create_or_update_row(self, key, graph_row):
         """Creates or updates the row with the key provided.
         """
-        if not key in self.rows:
+        if key not in self.rows:
             self.rows[key] = [graph_row]
         elif graph_row._transaction_id == self.rows[key][-1]._transaction_id:
             # reassignment here because this is an update from within the
@@ -83,17 +73,21 @@ class Graph(object):
         if key not in self.rows:
             graph_row = _GraphRow().add_local_keys(transaction_id, local_keys)
         else:
-            graph_row = self.rows[key][-1].add_local_keys(transaction_id, local_keys)
-        
+            graph_row = self.rows[key][-1].add_local_keys(
+                transaction_id, local_keys)
+
         self._create_or_update_row(key, graph_row)
 
     def add_foreign_keys(self, transaction_id, key, graph_id, *foreign_keys):
         """Adds one of more foreign keys.
         """
         if key not in self.rows:
-            graph_row = _GraphRow().add_foreign_keys(transaction_id, {graph_id: foreign_keys})
+            graph_row = _GraphRow().add_foreign_keys(transaction_id,
+                                                     {graph_id: foreign_keys})
         else:
-            graph_row = self.rows[key][-1].add_foreign_keys(transaction_id, {graph_id: foreign_keys})
+            graph_row = \
+                self.rows[key][-1].add_foreign_keys(transaction_id,
+                                                    {graph_id: foreign_keys})
 
         self._create_or_update_row(key, graph_row)
 
@@ -106,24 +100,25 @@ class Graph(object):
         Returns:
         If node exists in graph, returns true, otherwise false.
         """
-        return key in self.rows and self._get_history(transaction_id, key).node_exists()
+        return key in self.rows and \
+            self._get_history(transaction_id, key).node_exists()
 
-    def select_row(self, transaction_id, key = None):
+    def select_row(self, transaction_id, key=None):
         """Selects the row with the key given at the time given
         """
         return self.select(transaction_id, "oid", key)
 
-    def select_local_keys(self, transaction_id, key = None):
+    def select_local_keys(self, transaction_id, key=None):
         """Gets the local keys for the key and time provided.
         """
         return self.select(transaction_id, "local_keys", key)
 
-    def select_foreign_keys(self, transaction_id, key = None):
+    def select_foreign_keys(self, transaction_id, key=None):
         """Gets the foreign keys for the key and time provided.
         """
         return self.select(transaction_id, "foreign_keys", key)
-        
-    def select(self, transaction_id, prop, key = None):
+
+    def select(self, transaction_id, prop, key=None):
         """Selects the property given at the time given.
         """
         if key is None:
@@ -134,16 +129,17 @@ class Graph(object):
                     rows[key] = getattr(row_at_time, prop)
             return rows
         else:
-            if not key in self.rows:
+            if key not in self.rows:
                 raise ValueError("Key Error. Row does not exist.")
-            
+
             obj = self._get_history(transaction_id, key)
             return getattr(obj, prop)
 
     def _get_history(self, transaction_id, key):
         """Gets the historical state of the object with the key provided.
         """
-        filtered = list(filter(lambda p: p._transaction_id <= transaction_id, self.rows[key]))
+        filtered = list(filter(lambda p: p._transaction_id <= transaction_id,
+                               self.rows[key]))
         if len(filtered) > 0:
             return filtered[-1]
         else:
@@ -159,7 +155,12 @@ class _GraphRow(object):
     foreign_keys -- Edges between graphs. This is a dict: {graph_id: ObjectID}.
     _transaction_id -- The transaction_id that generated this row.
     """
-    def __init__(self, oid = None, local_keys = set(), foreign_keys = {}, transaction_id = -1):
+    def __init__(self,
+                 oid=None,
+                 local_keys=set(),
+                 foreign_keys={},
+                 transaction_id=-1):
+
         self.oid = oid
 
         try:
@@ -186,9 +187,12 @@ class _GraphRow(object):
         Returns:
         A new _GraphRow object containing the filtered keys.
         """
-        assert transaction_id >= self._transaction_id, "Transactions arrived out of order."
-        
-        return self.copy(local_keys = _apply_filter.remote(filterfn, self.local_keys), transaction_id = transaction_id)
+        assert transaction_id >= self._transaction_id, \
+            "Transactions arrived out of order."
+
+        return self.copy(local_keys=_apply_filter.remote(filterfn,
+                                                         self.local_keys),
+                         transaction_id=transaction_id)
 
     def filter_foreign_keys(self, filterfn, transaction_id, *graph_ids):
         """Filter the foreign keys keys based on the provided filter function.
@@ -201,7 +205,8 @@ class _GraphRow(object):
         Returns:
         A new _GraphRow object containing the filtered keys.
         """
-        assert transaction_id >= self._transaction_id, "Transactions arrived out of order."
+        assert transaction_id >= self._transaction_id, \
+            "Transactions arrived out of order."
 
         if transaction_id > self._transaction_id:
             new_keys = copy.deepcopy(self.foreign_keys)
@@ -209,9 +214,10 @@ class _GraphRow(object):
             new_keys = self.foreign_keys
 
         for graph_id in graph_ids:
-            new_keys[graph_id] = _apply_filter.remote(filterfn, new_keys[graph_id])
+            new_keys[graph_id] = _apply_filter.remote(filterfn,
+                                                      new_keys[graph_id])
 
-        return self.copy(foreign_keys = new_keys, transaction_id = transaction_id)
+        return self.copy(foreign_keys=new_keys, transaction_id=transaction_id)
 
     def add_local_keys(self, transaction_id, *values):
         """Append to the local keys based on the provided.
@@ -223,9 +229,12 @@ class _GraphRow(object):
         Returns:
         A new _GraphRow object containing the appended keys.
         """
-        assert transaction_id >= self._transaction_id, "Transactions arrived out of order."
+        assert transaction_id >= self._transaction_id,\
+            "Transactions arrived out of order."
 
-        return self.copy(local_keys = _apply_append.remote(self.local_keys, values), transaction_id = transaction_id)
+        return self.copy(local_keys=_apply_append.remote(self.local_keys,
+                                                         values),
+                         transaction_id=transaction_id)
 
     def add_foreign_keys(self, transaction_id, values):
         """Append to the local keys based on the provided.
@@ -237,8 +246,10 @@ class _GraphRow(object):
         Returns:
         A new _GraphRow object containing the appended keys.
         """
-        assert transaction_id >= self._transaction_id, "Transactions arrived out of order."
-        assert type(values) is dict, "Foreign keys must be dicts: {destination_graph: key}"
+        assert transaction_id >= self._transaction_id, \
+            "Transactions arrived out of order."
+        assert type(values) is dict, \
+            "Foreign keys must be dicts: {destination_graph: key}"
 
         if transaction_id > self._transaction_id:
             new_keys = copy.deepcopy(self.foreign_keys)
@@ -252,11 +263,16 @@ class _GraphRow(object):
                 except TypeError:
                     new_keys[graph_id] = set(values[graph_id])
             else:
-                new_keys[graph_id] = _apply_append.remote(new_keys[graph_id], values[graph_id])
+                new_keys[graph_id] = _apply_append.remote(new_keys[graph_id],
+                                                          values[graph_id])
 
-        return self.copy(foreign_keys = new_keys, transaction_id = transaction_id)
+        return self.copy(foreign_keys=new_keys, transaction_id=transaction_id)
 
-    def copy(self, oid = None, local_keys = None, foreign_keys = None, transaction_id = None):
+    def copy(self,
+             oid=None,
+             local_keys=None,
+             foreign_keys=None,
+             transaction_id=None):
         """Create a copy of this object and replace the provided fields.
         """
         if oid is None:
@@ -275,15 +291,18 @@ class _GraphRow(object):
         """
         return self.oid is not None
 
+
 class _DeletedGraphRow(_GraphRow):
     """Contains all data for a deleted row.
     """
     def __init__(self, transaction_id):
-        super(_DeletedGraphRow, self).__init__(transaction_id = transaction_id)
+        super(_DeletedGraphRow, self).__init__(transaction_id=transaction_id)
+
 
 @ray.remote
 def _apply_filter(filterfn, obj_to_filter):
     return set(filter(filterfn, obj_to_filter))
+
 
 @ray.remote
 def _apply_append(collection, values):

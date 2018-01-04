@@ -9,7 +9,7 @@ class Edge:
     orientation -- the direction of the connection. If orientation is
                    irrelevent, choose orientation = none (the default).
     """
-    def __init__(self, destination, weight = 0, orientation = "none"):
+    def __init__(self, destination, weight=0, orientation="none"):
         """
         The constructor for an Edge object.
 
@@ -23,7 +23,7 @@ class Edge:
         self.destination = destination
         self.weight = weight
         self.orientation = orientation
-        
+
     def update_weight(self, new_weight):
         """
         Updates the weight in this Edge to the value provided.
@@ -32,7 +32,7 @@ class Edge:
         new_weight -- the new weight for this Edge.
         """
         self.weight = new_weight
-        
+
     def add_to_weight(self, weight_to_add):
         """
         Adds a value to the existing weight and updates it.
@@ -41,7 +41,7 @@ class Edge:
         weight_to_add -- the weight to add to the weight for this Edge.
         """
         self.weight += weight_to_add
-        
+
     def update_orientation(self, new_orientation):
         """
         Updates the orientation of this Edge to the value provided.
