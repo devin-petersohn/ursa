@@ -69,7 +69,6 @@ class Graph(object):
     def add_local_keys(self, transaction_id, key, *local_keys):
         """Adds one or more local keys.
         """
-        raise ValueError(str(type(key)))
         if key not in self.rows:
             graph_row = _GraphRow().add_local_keys(transaction_id, local_keys)
         else:
@@ -209,7 +208,10 @@ class _GraphRow(object):
             "Transactions arrived out of order."
 
         if transaction_id > self._transaction_id:
-            new_keys = copy.deepcopy(self.foreign_keys)
+            # new_keys = copy.deepcopy(self.foreign_keys)
+            new_keys = {}
+            for graph_id in self.foreign_keys:
+                new_keys[graph_id] = self.foreign_keys[graph_id]
         else:
             new_keys = self.foreign_keys
 
@@ -252,7 +254,10 @@ class _GraphRow(object):
             "Foreign keys must be dicts: {destination_graph: key}"
 
         if transaction_id > self._transaction_id:
-            new_keys = copy.deepcopy(self.foreign_keys)
+            # new_keys = copy.deepcopy(self.foreign_keys)
+            new_keys = {}
+            for graph_id in self.foreign_keys:
+                new_keys[graph_id] = self.foreign_keys[graph_id]
         else:
             new_keys = self.foreign_keys
 

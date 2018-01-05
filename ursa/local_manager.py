@@ -102,10 +102,10 @@ class Graph_manager(object):
                                                         key,
                                                         *local_keys)
 
-        _add_local_key_back_edges(self._transaction_id,
-                                  self.graph_dict[graph_id],
-                                  key,
-                                  local_keys)
+        _add_local_key_back_edges.remote(self._transaction_id,
+                                         self.graph_dict[graph_id],
+                                         key,
+                                         local_keys)
 
     def add_foreign_keys(self, graph_id, key, other_graph_id, *foreign_keys):
         """Adds one or more foreign keys to the graph and key provided.
@@ -118,11 +118,11 @@ class Graph_manager(object):
             other_graph_id,
             *foreign_keys)
 
-        _add_foreign_key_back_edges(self._transaction_id,
-                                    self.graph_dict[other_graph_id],
-                                    key,
-                                    graph_id,
-                                    foreign_keys)
+        _add_foreign_key_back_edges.remote(self._transaction_id,
+                                           self.graph_dict[other_graph_id],
+                                           key,
+                                           graph_id,
+                                           foreign_keys)
 
     def node_exists(self, graph_id, key):
         """
