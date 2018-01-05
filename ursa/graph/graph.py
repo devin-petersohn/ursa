@@ -70,10 +70,10 @@ class Graph(object):
         """Adds one or more local keys.
         """
         if key not in self.rows:
-            graph_row = _GraphRow().add_local_keys(transaction_id, local_keys)
+            graph_row = _GraphRow().add_local_keys(transaction_id, *local_keys)
         else:
             graph_row = self.rows[key][-1].add_local_keys(
-                transaction_id, local_keys)
+                transaction_id, *local_keys)
 
         self._create_or_update_row(key, graph_row)
 
@@ -82,11 +82,11 @@ class Graph(object):
         """
         if key not in self.rows:
             graph_row = _GraphRow().add_foreign_keys(transaction_id,
-                                                     {graph_id: foreign_keys})
+                                                     {graph_id: list(foreign_keys)})
         else:
             graph_row = \
                 self.rows[key][-1].add_foreign_keys(transaction_id,
-                                                    {graph_id: foreign_keys})
+                                                    {graph_id: list(foreign_keys)})
 
         self._create_or_update_row(key, graph_row)
 
@@ -105,17 +105,17 @@ class Graph(object):
     def select_row(self, transaction_id, key=None):
         """Selects the row with the key given at the time given
         """
-        return self.select(transaction_id, "oid", key)
+        return [self.select(transaction_id, "oid", key)]
 
     def select_local_keys(self, transaction_id, key=None):
         """Gets the local keys for the key and time provided.
         """
-        return self.select(transaction_id, "local_keys", key)
+        return [self.select(transaction_id, "local_keys", key)]
 
     def select_foreign_keys(self, transaction_id, key=None):
         """Gets the foreign keys for the key and time provided.
         """
-        return self.select(transaction_id, "foreign_keys", key)
+        return [self.select(transaction_id, "foreign_keys", key)]
 
     def select(self, transaction_id, prop, key=None):
         """Selects the property given at the time given.
@@ -124,7 +124,7 @@ class Graph(object):
             rows = {}
             for key in self.rows:
                 row_at_time = self._get_history(transaction_id, key)
-                if row_at_time.node_exists():
+                if prop != "oid" or row_at_time.node_exists():
                     rows[key] = getattr(row_at_time, prop)
             return rows
         else:
@@ -160,18 +160,33 @@ class _GraphRow(object):
                  foreign_keys={},
                  transaction_id=-1):
 
-        self.oid = oid
+        # The only thing we keep as its actual value is the None to filter
+        if oid is not None:
+            # We need to put it in the Ray store if it's not there already.
+            if type(oid) is not ray.local_scheduler.ObjectID:
+                self.oid = ray.put(oid)
+            else:
+                self.oid = oid
+        else:
+            self.oid = oid
 
-        try:
-            self.local_keys = set([local_keys])
-        except TypeError:
-            self.local_keys = set(local_keys)
+        # Sometimes we get data that is already in the Ray store e.g. copy()
+        # and sometimes we get data that is not e.g. insert()
+        # We have to do a bit of work to ensure that our invariants are met.
+        if type(local_keys) is not ray.local_scheduler.ObjectID:
+            try:
+                self.local_keys = ray.put(set([local_keys]))
+            except TypeError:
+                self.local_keys = ray.put(set(local_keys))
+        else:
+            self.local_keys = local_keys
 
         for key in foreign_keys:
-            try:
-                foreign_keys[key] = set([foreign_keys[key]])
-            except TypeError:
-                foreign_keys[key] = set(foreign_keys[key])
+            if type(foreign_keys[key]) is not ray.local_scheduler.ObjectID:
+                try:
+                    foreign_keys[key] = ray.put(set([foreign_keys[key]]))
+                except TypeError:
+                    foreign_keys[key] = ray.put(set(foreign_keys[key]))
 
         self.foreign_keys = foreign_keys
         self._transaction_id = transaction_id
@@ -215,6 +230,7 @@ class _GraphRow(object):
             transaction records are not updated(overwritten) with the new
             transaction data
             """
+            # new_keys = copy.deepcopy(self.foreign_keys)
             new_keys = {}
             for graph_id in self.foreign_keys:
                 new_keys[graph_id] = self.foreign_keys[graph_id]
@@ -256,6 +272,9 @@ class _GraphRow(object):
         """
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
+        assert type(values) is dict, \
+            "Foreign keys must be dicts: {destination_graph: key}"
+
 
         if transaction_id > self._transaction_id:
             """
@@ -265,6 +284,7 @@ class _GraphRow(object):
             transaction records are not updated(overwritten) with the new
             transaction data
             """
+            # new_keys = copy.deepcopy(self.foreign_keys)
             new_keys = {}
             for graph_id in self.foreign_keys:
                 new_keys[graph_id] = self.foreign_keys[graph_id]
@@ -273,10 +293,7 @@ class _GraphRow(object):
 
         for graph_id in values:
             if graph_id not in new_keys:
-                try:
-                    new_keys[graph_id] = set([values[graph_id]])
-                except TypeError:
-                    new_keys[graph_id] = set(values[graph_id])
+                new_keys[graph_id] = values[graph_id]
             else:
                 new_keys[graph_id] = _apply_append.remote(new_keys[graph_id],
                                                           values[graph_id])

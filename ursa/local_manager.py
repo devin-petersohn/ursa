@@ -41,6 +41,13 @@ class Graph_manager(object):
             raise ValueError("Graph name already exists.")
         self.graph_dict[graph_id] = ug.Graph.remote(self._transaction_id)
 
+    def _create_if_not_exists(self, graph_id):
+        if graph_id not in self.graph_dict:
+            print("Warning:", str(graph_id),
+                  "is not yet in this Graph Collection. Creating...")
+
+            self.create_graph(graph_id, new_transaction=False)
+
     def insert(self, graph_id, key, node, local_keys=set(), foreign_keys={}):
         """
         Adds data to the graph specified.
@@ -58,10 +65,7 @@ class Graph_manager(object):
             raise ValueError(
                 "Foreign keys must be labeled with a destination graph.")
 
-        if graph_id not in self.graph_dict:
-            print("Warning:", str(graph_id),
-                  "is not yet in this Graph Collection. Creating...")
-            self.create_graph(graph_id, new_transaction=False)
+        self._create_if_not_exists(graph_id)
 
         self.graph_dict[graph_id].insert.remote(key,
                                                 node,
@@ -69,17 +73,18 @@ class Graph_manager(object):
                                                 foreign_keys,
                                                 self._transaction_id)
 
+        try:
+            local_keys = set([local_keys])
+        except TypeError:
+            local_keys = set(local_keys)
+
         _add_local_key_back_edges.remote(self._transaction_id,
                                          self.graph_dict[graph_id],
                                          key,
                                          local_keys)
 
         for other_graph_id in foreign_keys:
-            if other_graph_id not in self.graph_dict:
-                print("Warning:", str(other_graph_id),
-                      "is not yet in this Graph Collection. Creating...")
-
-                self.create_graph(other_graph_id, new_transaction=False)
+            self._create_if_not_exists(other_graph_id)
 
             _add_foreign_key_back_edges.remote(self._transaction_id,
                                                self.graph_dict[other_graph_id],
@@ -118,6 +123,8 @@ class Graph_manager(object):
             other_graph_id,
             *foreign_keys)
 
+        self._create_if_not_exists(other_graph_id)
+
         _add_foreign_key_back_edges.remote(self._transaction_id,
                                            self.graph_dict[other_graph_id],
                                            key,
@@ -140,16 +147,16 @@ class Graph_manager(object):
             self.graph_dict[graph_id].row_exists.remote(key)
 
     def select_row(self, graph_id, key=None):
-        return self.graph_dict[graph_id].select_row.remote(
-            self._transaction_id, key)
+        return ray.get(self.graph_dict[graph_id].select_row.remote(
+            self._transaction_id, key))[0]
 
     def select_local_keys(self, graph_id, key=None):
-        return self.graph_dict[graph_id].select_local_keys.remote(
-            self._transaction_id, key)
+        return ray.get(self.graph_dict[graph_id].select_local_keys.remote(
+            self._transaction_id, key))[0]
 
     def select_foreign_keys(self, graph_id, key=None):
-        return self.graph_dict[graph_id].select_foreign_keys.remote(
-            self._transaction_id, key)
+        return ray.get(self.graph_dict[graph_id].select_foreign_keys.remote(
+            self._transaction_id, key))[0]
 
     def get_graph(self, graph_id):
         """
