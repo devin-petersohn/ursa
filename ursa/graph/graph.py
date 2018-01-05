@@ -35,7 +35,8 @@ class Graph(object):
             self.rows[key] = \
                 [_GraphRow(oid, local_keys, foreign_keys, transaction_id)]
         else:
-            temp_row = self.rows[key][-1].update_oid(oid, transaction_id)
+            temp_row = self.rows[key][-1].copy(oid=oid,
+                                               transaction_id=transaction_id)
             temp_row = temp_row.add_local_keys(transaction_id, local_keys)
             temp_row = temp_row.add_foreign_keys(transaction_id, foreign_keys)
             self.rows[key].append(temp_row)
@@ -187,7 +188,7 @@ class _GraphRow(object):
         A new _GraphRow object containing the filtered keys.
         """
         assert transaction_id >= self._transaction_id, \
-            "Transactions arrived out of order."
+            "Transactions arrived out of order.\t" + transaction_id + "\t" + self._transaction_id
 
         return self.copy(local_keys=_apply_filter.remote(filterfn,
                                                          self.local_keys),
@@ -205,7 +206,7 @@ class _GraphRow(object):
         A new _GraphRow object containing the filtered keys.
         """
         assert transaction_id >= self._transaction_id, \
-            "Transactions arrived out of order."
+            "Transactions arrived out of order.\t" + str(transaction_id) + "\t" + str(self._transaction_id)
 
         if transaction_id > self._transaction_id:
             # new_keys = copy.deepcopy(self.foreign_keys)
@@ -249,7 +250,7 @@ class _GraphRow(object):
         A new _GraphRow object containing the appended keys.
         """
         assert transaction_id >= self._transaction_id, \
-            "Transactions arrived out of order."
+            "Transactions arrived out of order.\t" + str(self.oid.data) + "\t" + str(transaction_id) + "\t" + str(self._transaction_id)
         assert type(values) is dict, \
             "Foreign keys must be dicts: {destination_graph: key}"
 
@@ -312,9 +313,9 @@ def _apply_filter(filterfn, obj_to_filter):
 @ray.remote
 def _apply_append(collection, values):
     try:
-        collection.update(values)
+        collection = collection.update(values)
         return collection
-    except ValueError:
+    except TypeError:
         for val in values:
             collection.update(val)
 

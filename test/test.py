@@ -124,9 +124,10 @@ for read in sample_read_data:
         coordinate = read["contigName"] + "\t" + str(read["start"] + index)
         node = ursa.graph.Node(data)
 
-        graph_collection.insert("reads_genome_graph", coordinate, node, neighbors)
-        graph_collection.add_foreign_keys("reads_genome_graph", coordinate, "reads", read["readName"])
+        graph_collection.insert("reads_genome_graph", coordinate, node, neighbors, {"reads": set([read["readName"]])})
+        # graph_collection.add_foreign_keys("reads_genome_graph", coordinate, "reads", read["readName"])
 
+print("Here")
 # for storing the feature data
 graph_collection.create_graph("features")
 
@@ -152,12 +153,15 @@ sampleFeatures = [{"featureName": "0", "contigName": "chr1", "start": 45520936, 
 try:
     for feature in sampleFeatures:
         node = ursa.graph.Node(feature)
-        graph_collection.insert("features", feature["featureName"], node)
         coordinates = []
         for index in range(feature["end"] - feature["start"]):
             coordinates.append(feature["contigName"] + "\t" + str(feature["start"] + index))
 
-        graph_collection.add_multiple_inter_graph_connections("features", feature["featureName"], "reads_genome_graph", coordinates)
+        graph_collection.insert("features", feature["featureName"], node, {"reads_genome_graph": set(coordinates)})
+        
+        # graph_collection.add_multiple_inter_graph_connections("features", feature["featureName"], )
 
 except Exception as e:
     print("Something happened: " + str(e))
+
+print("EOF")
