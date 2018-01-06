@@ -209,7 +209,10 @@ class _GraphRow(object):
             "Transactions arrived out of order."
 
         if transaction_id > self._transaction_id:
-            # new_keys = copy.deepcopy(self.foreign_keys)
+            """
+            TODO: Find an efficient way to make a deepcopy.
+            A deepcopy will be needed if the new transaction id is larger then the current transaction id in order to ensure that the previous transaction records are not updated(overwritten) with the new transaction data
+            """
             new_keys = {}
             for graph_id in self.foreign_keys:
                 new_keys[graph_id] = self.foreign_keys[graph_id]
@@ -253,7 +256,10 @@ class _GraphRow(object):
             "Transactions arrived out of order."
 
         if transaction_id > self._transaction_id:
-            # new_keys = copy.deepcopy(self.foreign_keys)
+            """
+            TODO: Find an efficient way to make a deepcopy.
+            A deepcopy will be needed if the new transaction id is larger then the current transaction id in order to ensure that the previous transaction records are not updated(overwritten) with the new transaction data
+            """
             new_keys = {}
             for graph_id in self.foreign_keys:
                 new_keys[graph_id] = self.foreign_keys[graph_id]

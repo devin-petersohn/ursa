@@ -159,7 +159,5 @@ try:
 
         graph_collection.insert("features", feature["featureName"], node, {"reads_genome_graph": set(coordinates)})
         
-        # graph_collection.add_multiple_inter_graph_connections("features", feature["featureName"], )
-
 except Exception as e:
     print("Something happened: " + str(e))
