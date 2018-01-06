@@ -1,4 +1,3 @@
-import copy
 import ray
 
 
@@ -211,7 +210,10 @@ class _GraphRow(object):
         if transaction_id > self._transaction_id:
             """
             TODO: Find an efficient way to make a deepcopy.
-            A deepcopy will be needed if the new transaction id is larger then the current transaction id in order to ensure that the previous transaction records are not updated(overwritten) with the new transaction data
+            A deepcopy will be needed if the new transaction id is larger then
+            the current transaction id in order to ensure that the previous
+            transaction records are not updated(overwritten) with the new
+            transaction data
             """
             new_keys = {}
             for graph_id in self.foreign_keys:
@@ -258,7 +260,10 @@ class _GraphRow(object):
         if transaction_id > self._transaction_id:
             """
             TODO: Find an efficient way to make a deepcopy.
-            A deepcopy will be needed if the new transaction id is larger then the current transaction id in order to ensure that the previous transaction records are not updated(overwritten) with the new transaction data
+            A deepcopy will be needed if the new transaction id is larger then
+            the current transaction id in order to ensure that the previous
+            transaction records are not updated(overwritten) with the new
+            transaction data
             """
             new_keys = {}
             for graph_id in self.foreign_keys:
@@ -278,23 +283,23 @@ class _GraphRow(object):
 
         return self.copy(foreign_keys=new_keys, transaction_id=transaction_id)
 
-    def copy(self,
-             oid=None,
-             local_keys=None,
-             foreign_keys=None,
-             transaction_id=None):
-        """Create a copy of this object and replace the provided fields.
-        """
-        if oid is None:
-            oid = self.oid
-        if local_keys is None:
-            local_keys = self.local_keys
-        if foreign_keys is None:
-            foreign_keys = self.foreign_keys
-        if transaction_id is None:
-            transaction_id = self._transaction_id
+    # def copy(self,
+    #          oid=None,
+    #          local_keys=None,
+    #          foreign_keys=None,
+    #          transaction_id=None):
+    #     """Create a copy of this object and replace the provided fields.
+    #     """
+    #     if oid is None:
+    #         oid = self.oid
+    #     if local_keys is None:
+    #         local_keys = self.local_keys
+    #     if foreign_keys is None:
+    #         foreign_keys = self.foreign_keys
+    #     if transaction_id is None:
+    #         transaction_id = self._transaction_id
 
-        return _GraphRow(oid, local_keys, foreign_keys, transaction_id)
+    #     return _GraphRow(oid, local_keys, foreign_keys, transaction_id)
 
     def node_exists(self):
         """True if oid is not None, false otherwise.
