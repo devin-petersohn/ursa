@@ -188,7 +188,7 @@ class _GraphRow(object):
         A new _GraphRow object containing the filtered keys.
         """
         assert transaction_id >= self._transaction_id, \
-            "Transactions arrived out of order.\t" + transaction_id + "\t" + self._transaction_id
+            "Transactions arrived out of order."
 
         return self.copy(local_keys=_apply_filter.remote(filterfn,
                                                          self.local_keys),
@@ -206,7 +206,7 @@ class _GraphRow(object):
         A new _GraphRow object containing the filtered keys.
         """
         assert transaction_id >= self._transaction_id, \
-            "Transactions arrived out of order.\t" + str(transaction_id) + "\t" + str(self._transaction_id)
+            "Transactions arrived out of order."
 
         if transaction_id > self._transaction_id:
             # new_keys = copy.deepcopy(self.foreign_keys)
@@ -250,9 +250,7 @@ class _GraphRow(object):
         A new _GraphRow object containing the appended keys.
         """
         assert transaction_id >= self._transaction_id, \
-            "Transactions arrived out of order.\t" + str(self.oid.data) + "\t" + str(transaction_id) + "\t" + str(self._transaction_id)
-        assert type(values) is dict, \
-            "Foreign keys must be dicts: {destination_graph: key}"
+            "Transactions arrived out of order."
 
         if transaction_id > self._transaction_id:
             # new_keys = copy.deepcopy(self.foreign_keys)
@@ -313,7 +311,7 @@ def _apply_filter(filterfn, obj_to_filter):
 @ray.remote
 def _apply_append(collection, values):
     try:
-        collection = collection.update(values)
+        collection.update(values)
         return collection
     except TypeError:
         for val in values:

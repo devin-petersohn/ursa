@@ -163,5 +163,3 @@ try:
 
 except Exception as e:
     print("Something happened: " + str(e))
-
-print("EOF")
