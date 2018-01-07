@@ -81,12 +81,12 @@ class Graph(object):
         """Adds one of more foreign keys.
         """
         if key not in self.rows:
-            graph_row = _GraphRow().add_foreign_keys(transaction_id,
-                                                     {graph_id: list(foreign_keys)})
+            graph_row = _GraphRow().add_foreign_keys(
+                transaction_id, {graph_id: list(foreign_keys)})
         else:
             graph_row = \
-                self.rows[key][-1].add_foreign_keys(transaction_id,
-                                                    {graph_id: list(foreign_keys)})
+                self.rows[key][-1].add_foreign_keys(
+                    transaction_id, {graph_id: list(foreign_keys)})
 
         self._create_or_update_row(key, graph_row)
 
@@ -230,7 +230,6 @@ class _GraphRow(object):
             transaction records are not updated(overwritten) with the new
             transaction data
             """
-            # new_keys = copy.deepcopy(self.foreign_keys)
             new_keys = {}
             for graph_id in self.foreign_keys:
                 new_keys[graph_id] = self.foreign_keys[graph_id]
@@ -275,7 +274,6 @@ class _GraphRow(object):
         assert type(values) is dict, \
             "Foreign keys must be dicts: {destination_graph: key}"
 
-
         if transaction_id > self._transaction_id:
             """
             TODO: Find an efficient way to make a deepcopy.
@@ -284,7 +282,6 @@ class _GraphRow(object):
             transaction records are not updated(overwritten) with the new
             transaction data
             """
-            # new_keys = copy.deepcopy(self.foreign_keys)
             new_keys = {}
             for graph_id in self.foreign_keys:
                 new_keys[graph_id] = self.foreign_keys[graph_id]
