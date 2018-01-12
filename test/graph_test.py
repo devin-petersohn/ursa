@@ -171,3 +171,28 @@ def test_delete():
     graph.delete.remote("Key1", transaction_id)
     assert(ray.get(graph.row_exists.remote(key, transaction_id - 1)))
     assert(not ray.get(graph.row_exists.remote(key, transaction_id)))
+
+
+def test_split():
+    graph = init_test()
+    key = "Key1"
+    oid = "Value1"
+    local_keys = set()
+    foreign_keys = {}
+    transaction_id = 0
+    graph.insert.remote(key, oid, local_keys, foreign_keys, transaction_id)
+
+    key = "Key2"
+    oid = "Value2"
+    local_keys = set()
+    foreign_keys = {}
+    transaction_id = 0
+    graph.insert.remote(key, oid, local_keys, foreign_keys, transaction_id)
+
+    second_graph = ursa.graph.Graph.remote(transaction_id,
+                                           graph.split.remote())
+
+    assert ray.get(graph.row_exists.remote("Key1", transaction_id))
+    assert not ray.get(second_graph.row_exists.remote("Key1", transaction_id))
+    assert not ray.get(graph.row_exists.remote("Key2", transaction_id))
+    assert ray.get(second_graph.row_exists.remote("Key2", transaction_id))

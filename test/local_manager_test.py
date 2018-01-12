@@ -119,3 +119,20 @@ def test_add_foreign_keys():
 
     f_key_query2 = manager.select_foreign_keys("Other Graph", "Foreign Key")
     assert ray.get(f_key_query2[test_graph_id]) == set(["Key1"])
+
+
+def test_split():
+    manager = init_test()
+    manager.insert(test_graph_id, "Key1", "Value1")
+    manager.insert(test_graph_id, "Key2", "Value2")
+    manager.split_graph(test_graph_id)
+
+    assert len(manager.graph_dict[test_graph_id]) == 2
+    assert ray.get(
+        manager.graph_dict[test_graph_id][0].row_exists.remote("Key1", 10))
+    assert not ray.get(
+        manager.graph_dict[test_graph_id][0].row_exists.remote("Key2", 10))
+    assert not ray.get(
+        manager.graph_dict[test_graph_id][1].row_exists.remote("Key1", 10))
+    assert ray.get(
+        manager.graph_dict[test_graph_id][1].row_exists.remote("Key2", 10))

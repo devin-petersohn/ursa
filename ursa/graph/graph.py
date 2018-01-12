@@ -10,10 +10,10 @@ class Graph(object):
     rows -- The dictionary of _GraphRow objects.
     """
 
-    def __init__(self, transaction_id):
+    def __init__(self, transaction_id, rows={}):
         """The constructor for the Graph object. Initializes all graph data.
         """
-        self.rows = {}
+        self.rows = rows
         self._creation_transaction_id = transaction_id
 
     def insert(self, key, oid, local_keys, foreign_keys, transaction_id):
@@ -143,6 +143,25 @@ class Graph(object):
             return filtered[-1]
         else:
             return _GraphRow()
+
+    def split(self):
+        """Splits the graph into two graphs and returns the new graph.
+
+        Note: This modifies the existing Graph also.
+
+        :return: A new Graph with half of the rows.
+        """
+        half = int(len(self.rows)/2)
+        items = list(self.rows.items())
+        items.sort()
+        second_dict = dict(items[half:])
+        self.rows = dict(items[:half])
+        return second_dict
+
+    def getattr(self, item):
+        """Gets the attribute.
+        """
+        return getattr(self, item)
 
 
 class _GraphRow(object):

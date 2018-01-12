@@ -19,7 +19,7 @@ class Graph_manager(object):
         self.graph_dict = {}
         self._transaction_id = 0
 
-    def update_transaction_id():
+    def update_transaction_id(self):
         """
         Updates the transaction ID with that of the global graph manager.
         """
@@ -169,6 +169,16 @@ class Graph_manager(object):
         The Graph object for the graph requested.
         """
         return self.graph_dict[graph_id]
+
+    def split_graph(self, graph_id):
+        """Splits a graph into two graphs.
+        """
+        second_split = self.graph_dict[graph_id].split.remote()
+        t_id = ray.get(self.graph_dict[graph_id].getattr.remote(
+                "_creation_transaction_id"))
+        self.graph_dict[graph_id] = \
+            [self.graph_dict[graph_id],
+             ug.Graph.remote(t_id, second_split)]
 
 
 @ray.remote
