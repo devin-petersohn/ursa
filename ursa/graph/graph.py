@@ -1,7 +1,7 @@
 import ray
 
 
-@ray.remote
+@ray.remote(num_cpus=2)
 class Graph(object):
     """
     This object contains reference and connection information for a graph.

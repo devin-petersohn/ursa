@@ -78,19 +78,19 @@ class Graph_manager(object):
         except TypeError:
             local_keys = set(local_keys)
 
-        _add_local_key_back_edges.remote(self._transaction_id,
-                                         self.graph_dict[graph_id],
-                                         key,
-                                         local_keys)
+        for back_edge_key in local_keys:
+            self.graph_dict[graph_id].add_local_keys.remote(
+                self._transaction_id, back_edge_key, key)
 
         for other_graph_id in foreign_keys:
             self._create_if_not_exists(other_graph_id)
 
-            _add_foreign_key_back_edges.remote(self._transaction_id,
-                                               self.graph_dict[other_graph_id],
-                                               key,
-                                               graph_id,
-                                               foreign_keys[other_graph_id])
+            for back_edge_key in foreign_keys:
+                self.graph_dict[other_graph_id].add_foreign_keys.remote(
+                    self._transaction_id,
+                    back_edge_key,
+                    graph_id,
+                    key)
 
     def delete_row(self, graph_id, key):
         """Deletes the user specified row and all associated edges
@@ -107,10 +107,9 @@ class Graph_manager(object):
                                                         key,
                                                         *local_keys)
 
-        _add_local_key_back_edges.remote(self._transaction_id,
-                                         self.graph_dict[graph_id],
-                                         key,
-                                         local_keys)
+        for back_edge_key in local_keys:
+            self.graph_dict[graph_id].add_local_keys.remote(
+                self._transaction_id, back_edge_key, key)
 
     def add_foreign_keys(self, graph_id, key, other_graph_id, *foreign_keys):
         """Adds one or more foreign keys to the graph and key provided.
@@ -125,11 +124,12 @@ class Graph_manager(object):
 
         self._create_if_not_exists(other_graph_id)
 
-        _add_foreign_key_back_edges.remote(self._transaction_id,
-                                           self.graph_dict[other_graph_id],
-                                           key,
-                                           graph_id,
-                                           foreign_keys)
+        for back_edge_key in foreign_keys:
+            self.graph_dict[other_graph_id].add_foreign_keys.remote(
+                self._transaction_id,
+                back_edge_key,
+                graph_id,
+                key)
 
     def node_exists(self, graph_id, key):
         """
@@ -179,39 +179,3 @@ class Graph_manager(object):
         self.graph_dict[graph_id] = \
             [self.graph_dict[graph_id],
              ug.Graph.remote(t_id, second_split)]
-
-
-@ray.remote
-def _add_local_key_back_edges(transaction_id, graph, key, local_keys):
-    """Creates back edges for local keys in a given graph.
-
-    This satisfies our bi-directionality invariant.
-
-    Keyword arguments:
-    graph -- the Graph object to add the back edges to.
-    key -- the unique identifier of the Node to connect back edges to.
-    list_of_foreign_keys -- the list of connections to create back edges for.
-    """
-
-    for back_edge_key in local_keys:
-        graph.add_local_keys.remote(transaction_id, back_edge_key, key)
-
-
-@ray.remote
-def _add_foreign_key_back_edges(transaction_id, graph, key, graph_id, f_keys):
-    """Creates back edges for foreign keys in a given graph.
-
-    This satisfies our bi-directionality invariant.
-
-    Keyword arguments:
-    graph -- the Graph object of the other graph for the connections to
-                   be added.
-    key -- the key to connect the other graph keys to.
-    graph_id -- the unique identifier of the graph to connect to.
-    f_keys -- the keys in graph to connect to key.
-    """
-    for back_edge_key in f_keys:
-        graph.add_foreign_keys.remote(transaction_id,
-                                      back_edge_key,
-                                      graph_id,
-                                      key)
