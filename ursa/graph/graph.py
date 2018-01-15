@@ -360,7 +360,9 @@ def _connected_components(adj_list):
     s = {}
     c = []
     for key in adj_list:
-        s[key] = _apply_filter.remote(lambda row: row > key, adj_list[key][-1].local_keys)
+        s[key] = _apply_filter.remote(
+            lambda row: row > key, adj_list[key][-1].local_keys)
+
         if ray.get(_all.remote(key, adj_list[key][-1].local_keys)):
             c.append(key)
     return [_get_children.remote(key, s) for key in c]

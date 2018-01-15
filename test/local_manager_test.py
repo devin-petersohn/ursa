@@ -1,3 +1,4 @@
+import time
 import ursa
 import pytest
 import ray
@@ -66,6 +67,8 @@ def test_insert_and_select_roundtrip():
     l_key_query2 = manager.select_local_keys(test_graph_id, "Key2")
     assert ray.get(l_key_query2) == set(["Key1"])
 
+    # TODO Remove this once ray actor tasks can be joined
+    time.sleep(1)
     # testing the bi-directionality invariant
     l_key_query1 = manager.select_local_keys(test_graph_id, "Key1")
     assert ray.get(l_key_query1) == set(["Key2"])
@@ -102,6 +105,8 @@ def test_add_local_keys():
     l_key_query2 = manager.select_local_keys(test_graph_id, "Key2")
     assert ray.get(l_key_query2) == set(["Key1"])
 
+    # TODO Remove this once ray actor tasks can be joined
+    time.sleep(1)
     l_key_query1 = manager.select_local_keys(test_graph_id, "Key1")
     assert ray.get(l_key_query1) == set(["Key2"])
 
@@ -117,6 +122,8 @@ def test_add_foreign_keys():
     f_key_query1 = manager.select_foreign_keys(test_graph_id, "Key1")
     assert ray.get(f_key_query1["Other Graph"]) == set(["Foreign Key"])
 
+    # TODO Remove this once ray actor tasks can be joined
+    time.sleep(1)
     f_key_query2 = manager.select_foreign_keys("Other Graph", "Foreign Key")
     assert ray.get(f_key_query2[test_graph_id]) == set(["Key1"])
 
