@@ -163,6 +163,11 @@ class Graph(object):
         """
         return getattr(self, item)
 
+    def connected_components(self):
+        """Gets the connected components
+        """
+        return [_connected_components.remote(self.rows)]
+
 
 class _GraphRow(object):
     """Contains all data for a row of the Graph Database.
@@ -348,3 +353,31 @@ def _apply_append(collection, values):
             collection.update(val)
 
         return collection
+
+
+@ray.remote
+def _connected_components(adj_list):
+    s = {}
+    c = []
+    for key in adj_list:
+        s[key] = _apply_filter.remote(lambda row: row > key, adj_list[key][-1].local_keys)
+        if ray.get(_all.remote(key, adj_list[key][-1].local_keys)):
+            c.append(key)
+    return [_get_children.remote(key, s) for key in c]
+
+
+@ray.remote
+def _all(key, adj_list):
+    return all(i > key for i in adj_list)
+
+
+@ray.remote
+def _get_children(key, s):
+    c = ray.get(s[key])
+    try:
+        res = ray.get([_get_children.remote(i, s) for i in c])
+        c.update([j for i in res for j in i])
+    except TypeError as e:
+        print(e)
+    c.add(key)
+    return set(c)
