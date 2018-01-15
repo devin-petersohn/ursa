@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # run flake8
-flake8 . 
+python3 -m flake8
 
 # run pytest for python3 on all test files
 python3 -m pytest test/local_manager_test.py
