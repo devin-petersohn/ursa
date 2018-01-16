@@ -136,3 +136,21 @@ def test_split():
         manager.graph_dict[test_graph_id][1].row_exists.remote("Key1", 10))
     assert ray.get(
         manager.graph_dict[test_graph_id][1].row_exists.remote("Key2", 10))
+
+
+def test_update():
+    manager = init_test()
+    manager.insert(test_graph_id, "Key3", "Value3")
+    manager.insert(test_graph_id, "Key4", "Value4")
+    manager.update(test_graph_id, "Key3", "UpdatedValue")
+
+    assert ray.get(manager.select_row(test_graph_id, "Key3")) == "UpdatedValue"
+
+
+def test_update_no_args():
+    manager = init_test()
+    manager.insert(test_graph_id, "Key3", "Value3")
+    manager.insert(test_graph_id, "Key4", "Value4")
+
+    with pytest.raises(ValueError):
+        manager.update(test_graph_id, "Key 3")

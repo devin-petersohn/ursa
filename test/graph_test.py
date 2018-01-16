@@ -196,3 +196,37 @@ def test_split():
     assert not ray.get(second_graph.row_exists.remote("Key1", transaction_id))
     assert not ray.get(graph.row_exists.remote("Key2", transaction_id))
     assert ray.get(second_graph.row_exists.remote("Key2", transaction_id))
+
+
+def test_update_deleted_row():
+    graph = init_test()
+    local_keys = set()
+    foreign_keys = {}
+    transaction_id = 0
+    graph.insert.remote("Key3", "Value3", local_keys, foreign_keys,
+                        transaction_id)
+    graph.insert.remote("Key4", "Value4", local_keys, foreign_keys,
+                        transaction_id)
+
+    graph.delete.remote("Key3", transaction_id)
+    graph.update.remote("Key3", "UpdatedValue", local_keys, foreign_keys,
+                        transaction_id)
+
+    assert "Key3" not in ray.get(graph.select_row.remote(transaction_id))
+
+
+def test_non_existant_row():
+    graph = init_test()
+    local_keys = set()
+    foreign_keys = {}
+    transaction_id = 0
+    graph.insert.remote("Key3", "Value3", local_keys, foreign_keys,
+                        transaction_id)
+    graph.insert.remote("Key4", "Value4", local_keys, foreign_keys,
+                        transaction_id)
+
+    graph.delete.remote("Key3", transaction_id)
+    graph.update.remote("Key9999", "UpdatedValue", local_keys, foreign_keys,
+                        transaction_id)
+
+    assert "Key9999" not in ray.get(graph.select_row.remote(transaction_id))

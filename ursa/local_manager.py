@@ -92,6 +92,22 @@ class Graph_manager(object):
                     graph_id,
                     key)
 
+    def update(self, graph_id, key, node=None, local_keys=None,
+               foreign_keys=None):
+        """Updates the user specified row and all associated edges
+        """
+        if node is None and local_keys is None and foreign_keys is None:
+            raise ValueError(
+                "No values provided to update.")
+
+        self._transaction_id += 1
+
+        self.graph_dict[graph_id].update.remote(key,
+                                                node,
+                                                local_keys,
+                                                foreign_keys,
+                                                self._transaction_id)
+
     def delete_row(self, graph_id, key):
         """Deletes the user specified row and all associated edges
         """

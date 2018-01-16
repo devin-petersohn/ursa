@@ -40,6 +40,22 @@ class Graph(object):
             temp_row = temp_row.add_foreign_keys(transaction_id, foreign_keys)
             self.rows[key].append(temp_row)
 
+    def update(self, key, node, local_keys, foreign_keys, transaction_id):
+        """Updates the data for a node in the graph.
+
+        Keyword arguments:
+        key -- the unique identifier of the node in the graph.
+        oid -- the Ray ObjectID for the Node object referenced by key.
+        local_keys -- the list of connections within this graph.
+        foreign_keys -- the connections to the other graphs.
+        transaction_id -- the transaction_id for this update.
+        """
+        assert self.row_exists(key, transaction_id), "Key does not exist"
+
+        last_node = self.rows[key][-1]
+        node = last_node.copy(node, local_keys, foreign_keys, transaction_id)
+        self._create_or_update_row(key, node)
+
     def delete(self, key, transaction_id):
         """Deletes the data for a node in the graph.
 
