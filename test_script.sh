@@ -18,7 +18,7 @@ python3 -m pytest test/test_connected_components.py
 
 # deactivate and remove the conda env
 source deactivate
-conda remove -n ursa-python3-${uuid} --all
+conda remove -n -y ursa-python3-${uuid} --all
 
 # create a conda environment for python build, if necessary
 uuid=$(uuidgen)
@@ -35,4 +35,4 @@ python2 -m pytest test/test_connected_components.py
 
 # deactivate and remove the conda env
 source deactivate
-conda remove -n ursa-python2-${uuid} --all
+conda remove -n -y ursa-python2-${uuid} --all
