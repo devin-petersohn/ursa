@@ -9,7 +9,7 @@ source activate ursa-python3-${uuid}
 make prepare
 
 # run flake8
-python3 -m flake8
+python3 -m flake8 --exclude env,__pycache__,.git
 
 if [ $? -ne 0 ]; then
 	echo "Please fix flake8 errors."

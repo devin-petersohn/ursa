@@ -188,8 +188,10 @@ class GraphManager(object):
 
         @return: The Object ID(s) of the local edges.
         """
-        return ray.get(self.graph_dict[graph_id].select_local_edges.remote(
-            self._transaction_id, key))[0]
+        edges_oid, buffer_oid = self.graph_dict[graph_id].\
+                        select_local_keys.remote(self._transaction_id, key)
+        return [item for l in ray.get(ray.get(
+            edges_oid)).append(ray.get(buffer_oid)) for item in l]
 
     def select_foreign_edges(self, graph_id, key=None):
         """Gets all foreign edges for the graph/key specified.
