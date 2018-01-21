@@ -48,7 +48,7 @@ class Graph_manager(object):
 
             self.create_graph(graph_id, new_transaction=False)
 
-    def insert(self, graph_id, key, node, local_keys=set(), foreign_keys={}):
+    def insert(self, graph_id, key, node, local_edges=set(), foreign_edges={}):
         """
         Adds data to the graph specified.
 
@@ -56,12 +56,12 @@ class Graph_manager(object):
         graph_id -- the unique name of the graph.
         key -- the unique identifier of this data in the graph.
         node -- the data to add to the graph.
-        local_keys -- A list of edges within this graph, if any.
-        foreign_keys -- A dictionary: {graph id: key}
+        local_edges -- A list of edges within this graph, if any.
+        foreign_edges -- A dictionary: {graph id: key}
         """
         self._transaction_id += 1
 
-        if type(foreign_keys) is not dict:
+        if type(foreign_edges) is not dict:
             raise ValueError(
                 "Foreign keys must be labeled with a destination graph.")
 
@@ -69,34 +69,34 @@ class Graph_manager(object):
 
         self.graph_dict[graph_id].insert.remote(key,
                                                 node,
-                                                local_keys,
-                                                foreign_keys,
+                                                local_edges,
+                                                foreign_edges,
                                                 self._transaction_id)
 
         try:
-            local_keys = set([local_keys])
+            local_edges = set([local_edges])
         except TypeError:
-            local_keys = set(local_keys)
+            local_edges = set(local_edges)
 
-        for back_edge_key in local_keys:
-            self.graph_dict[graph_id].add_local_keys.remote(
+        for back_edge_key in local_edges:
+            self.graph_dict[graph_id].add_local_edges.remote(
                 self._transaction_id, back_edge_key, key)
 
-        for other_graph_id in foreign_keys:
+        for other_graph_id in foreign_edges:
             self._create_if_not_exists(other_graph_id)
 
-            for back_edge_key in foreign_keys:
-                self.graph_dict[other_graph_id].add_foreign_keys.remote(
+            for back_edge_key in foreign_edges:
+                self.graph_dict[other_graph_id].add_foreign_edges.remote(
                     self._transaction_id,
                     back_edge_key,
                     graph_id,
                     key)
 
-    def update(self, graph_id, key, node=None, local_keys=None,
-               foreign_keys=None):
+    def update(self, graph_id, key, node=None, local_edges=None,
+               foreign_edges=None):
         """Updates the user specified row and all associated edges
         """
-        if node is None and local_keys is None and foreign_keys is None:
+        if node is None and local_edges is None and foreign_edges is None:
             raise ValueError(
                 "No values provided to update.")
 
@@ -104,8 +104,8 @@ class Graph_manager(object):
 
         self.graph_dict[graph_id].update.remote(key,
                                                 node,
-                                                local_keys,
-                                                foreign_keys,
+                                                local_edges,
+                                                foreign_edges,
                                                 self._transaction_id)
 
     def delete_row(self, graph_id, key):
@@ -115,33 +115,33 @@ class Graph_manager(object):
 
         self.graph_dict[graph_id].delete.remote(key, self._transaction_id)
 
-    def add_local_keys(self, graph_id, key, *local_keys):
+    def add_local_edges(self, graph_id, key, *local_edges):
         """Adds one or more local keys to the graph and key provided.
         """
         self._transaction_id += 1
-        self.graph_dict[graph_id].add_local_keys.remote(self._transaction_id,
+        self.graph_dict[graph_id].add_local_edges.remote(self._transaction_id,
                                                         key,
-                                                        *local_keys)
+                                                        *local_edges)
 
-        for back_edge_key in local_keys:
-            self.graph_dict[graph_id].add_local_keys.remote(
+        for back_edge_key in local_edges:
+            self.graph_dict[graph_id].add_local_edges.remote(
                 self._transaction_id, back_edge_key, key)
 
-    def add_foreign_keys(self, graph_id, key, other_graph_id, *foreign_keys):
+    def add_foreign_edges(self, graph_id, key, other_graph_id, *foreign_edges):
         """Adds one or more foreign keys to the graph and key provided.
         """
         self._transaction_id += 1
 
-        self.graph_dict[graph_id].add_foreign_keys.remote(
+        self.graph_dict[graph_id].add_foreign_edges.remote(
             self._transaction_id,
             key,
             other_graph_id,
-            *foreign_keys)
+            *foreign_edges)
 
         self._create_if_not_exists(other_graph_id)
 
-        for back_edge_key in foreign_keys:
-            self.graph_dict[other_graph_id].add_foreign_keys.remote(
+        for back_edge_key in foreign_edges:
+            self.graph_dict[other_graph_id].add_foreign_edges.remote(
                 self._transaction_id,
                 back_edge_key,
                 graph_id,
@@ -166,12 +166,12 @@ class Graph_manager(object):
         return ray.get(self.graph_dict[graph_id].select_row.remote(
             self._transaction_id, key))[0]
 
-    def select_local_keys(self, graph_id, key=None):
-        return ray.get(self.graph_dict[graph_id].select_local_keys.remote(
+    def select_local_edges(self, graph_id, key=None):
+        return ray.get(self.graph_dict[graph_id].select_local_edges.remote(
             self._transaction_id, key))[0]
 
-    def select_foreign_keys(self, graph_id, key=None):
-        return ray.get(self.graph_dict[graph_id].select_foreign_keys.remote(
+    def select_foreign_edges(self, graph_id, key=None):
+        return ray.get(self.graph_dict[graph_id].select_foreign_edges.remote(
             self._transaction_id, key))[0]
 
     def get_graph(self, graph_id):

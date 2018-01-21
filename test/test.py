@@ -17,12 +17,12 @@ def build_node(graph_collection, variant, graph_id, indiv):
     node = ursa.graph.Node(variant["variantAllele"])
 
     graph_collection.insert(graph_id, coordinate, node, neighbors)
-    graph_collection.add_foreign_keys(graph_id, coordinate, "individuals",
+    graph_collection.add_foreign_edges(graph_id, coordinate, "individuals",
                                       indiv["individualID"])
 
     edge_to_this_node = ursa.graph.Edge(coordinate, 0, "none")
     for neighbor in neighbors:
-        graph_collection.add_local_keys(graph_id, neighbor.destination,
+        graph_collection.add_local_edges(graph_id, neighbor.destination,
                                         edge_to_this_node)
 
 
@@ -77,14 +77,14 @@ def build_dna_graph(reference_genome, dna_test_data, graph_collection):
             node = ursa.graph.Node(variant["variantAllele"])
 
             graph_collection.insert(graph_id, coordinate, node, neighbors)
-            graph_collection.add_foreign_keys(graph_id, coordinate,
+            graph_collection.add_foreign_edges(graph_id, coordinate,
                                               "individuals",
                                               indiv["individualID"])
 
             edge_to_this_node = ursa.graph.Edge(coordinate, 0, "none")
 
             for neighbor in neighbors:
-                graph_collection.add_local_keys(graph_id,
+                graph_collection.add_local_edges(graph_id,
                                                 neighbor.destination,
                                                 edge_to_this_node)
 
@@ -355,7 +355,7 @@ for read in sample_read_data:
         graph_collection.insert("reads_genome_graph", coordinate, node,
                                 neighbors, {"reads": set([read["readName"]])})
         """
-         graph_collection.add_foreign_keys("reads_genome_graph", coordinate,
+         graph_collection.add_foreign_edges("reads_genome_graph", coordinate,
          "reads", read["readName"])
         """
 

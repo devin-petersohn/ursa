@@ -12,7 +12,7 @@ def test_connected_components():
 
     manager.insert(test_graph_id, "Key1", "Value1")
     manager.insert(test_graph_id, "Key2", "Value2")
-    manager.add_local_keys(test_graph_id, "Key2", "Key1")
+    manager.add_local_edges(test_graph_id, "Key2", "Key1")
 
     manager.insert(test_graph_id, "Key3", "Value3", "Key2")
     manager.insert(test_graph_id, "Key4", "Value4", "Key6")
