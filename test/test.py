@@ -17,13 +17,13 @@ def build_node(graph_collection, variant, graph_id, indiv):
     node = ursa.graph.Node(variant["variantAllele"])
 
     graph_collection.insert(graph_id, coordinate, node, neighbors)
-    graph_collection.add_foreign_edges(graph_id, coordinate, "individuals",
-                                      indiv["individualID"])
+    graph_collection.add_foreign_edges(
+        graph_id, coordinate, "individuals", indiv["individualID"])
 
     edge_to_this_node = ursa.graph.Edge(coordinate, 0, "none")
     for neighbor in neighbors:
-        graph_collection.add_local_edges(graph_id, neighbor.destination,
-                                        edge_to_this_node)
+        graph_collection.add_local_edges(
+            graph_id, neighbor.destination, edge_to_this_node)
 
 
 @ray.remote
@@ -77,16 +77,14 @@ def build_dna_graph(reference_genome, dna_test_data, graph_collection):
             node = ursa.graph.Node(variant["variantAllele"])
 
             graph_collection.insert(graph_id, coordinate, node, neighbors)
-            graph_collection.add_foreign_edges(graph_id, coordinate,
-                                              "individuals",
-                                              indiv["individualID"])
+            graph_collection.add_foreign_edges(
+                graph_id, coordinate, "individuals", indiv["individualID"])
 
             edge_to_this_node = ursa.graph.Edge(coordinate, 0, "none")
 
             for neighbor in neighbors:
-                graph_collection.add_local_edges(graph_id,
-                                                neighbor.destination,
-                                                edge_to_this_node)
+                graph_collection.add_local_edges(
+                    graph_id, neighbor.destination, edge_to_this_node)
 
 
 ray.init()

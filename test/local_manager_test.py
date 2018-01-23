@@ -112,8 +112,8 @@ def test_add_foreign_edges():
     f_key_query1 = manager.select_foreign_edges(test_graph_id, "Key1")
     assert f_key_query1 == {}
 
-    manager.add_foreign_edges(test_graph_id, "Key1", "Other Graph",
-                             "Foreign Key")
+    manager.add_foreign_edges(
+        test_graph_id, "Key1", "Other Graph", "Foreign Key")
     f_key_query1 = manager.select_foreign_edges(test_graph_id, "Key1")
     assert ray.get(f_key_query1["Other Graph"]) == set(["Foreign Key"])
 

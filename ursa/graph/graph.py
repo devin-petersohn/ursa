@@ -36,8 +36,10 @@ class Graph(object):
         else:
             temp_row = self.rows[key][-1].copy(oid=oid,
                                                transaction_id=transaction_id)
-            temp_row = temp_row.add_local_edges(transaction_id, local_edges)
-            temp_row = temp_row.add_foreign_edges(transaction_id, foreign_edges)
+            temp_row = temp_row.add_local_edges(
+                transaction_id, local_edges)
+            temp_row = temp_row.add_foreign_edges(
+                transaction_id, foreign_edges)
             self.rows[key].append(temp_row)
 
     def update(self, key, node, local_edges, foreign_edges, transaction_id):
@@ -86,7 +88,8 @@ class Graph(object):
         """Adds one or more local keys.
         """
         if key not in self.rows:
-            graph_row = _GraphRow().add_local_edges(transaction_id, *local_edges)
+            graph_row = _GraphRow().add_local_edges(
+                transaction_id, *local_edges)
         else:
             graph_row = self.rows[key][-1].add_local_edges(
                 transaction_id, *local_edges)
@@ -191,7 +194,8 @@ class _GraphRow(object):
     Fields:
     oid -- The ray ObjectID for the data in the row.
     local_edges -- Edges within the same graph. This is a set of ray ObjectIDs.
-    foreign_edges -- Edges between graphs. This is a dict: {graph_id: ObjectID}.
+    foreign_edges -- Edges between graphs. This is a dict:
+                        {graph_id: ObjectID}.
     _transaction_id -- The transaction_id that generated this row.
     """
     def __init__(self,
@@ -244,9 +248,8 @@ class _GraphRow(object):
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
 
-        return self.copy(local_edges=_apply_filter.remote(filterfn,
-                                                         self.local_edges),
-                         transaction_id=transaction_id)
+        return self.copy(local_edges=_apply_filter.remote(
+            filterfn, self.local_edges), transaction_id=transaction_id)
 
     def filter_foreign_edges(self, filterfn, transaction_id, *graph_ids):
         """Filter the foreign keys keys based on the provided filter function.
@@ -288,9 +291,9 @@ class _GraphRow(object):
         assert transaction_id >= self._transaction_id,\
             "Transactions arrived out of order."
 
-        return self.copy(local_edges=_apply_append.remote(self.local_edges,
-                                                         values),
-                         transaction_id=transaction_id)
+        return self.copy(local_edges=_apply_append.remote(
+            self.local_edges, values),
+            transaction_id=transaction_id)
 
     def add_foreign_edges(self, transaction_id, values):
         """Append to the local keys based on the provided.

@@ -119,9 +119,8 @@ class Graph_manager(object):
         """Adds one or more local keys to the graph and key provided.
         """
         self._transaction_id += 1
-        self.graph_dict[graph_id].add_local_edges.remote(self._transaction_id,
-                                                        key,
-                                                        *local_edges)
+        self.graph_dict[graph_id].add_local_edges.remote(
+            self._transaction_id, key, *local_edges)
 
         for back_edge_key in local_edges:
             self.graph_dict[graph_id].add_local_edges.remote(
