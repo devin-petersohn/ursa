@@ -7,7 +7,7 @@ class Graph(object):
     This object contains reference and connection information for a graph.
 
     Fields:
-    rows -- The dictionary of _GraphRow objects.
+    rows -- The dictionary of _Vertex objects.
     """
 
     def __init__(self, transaction_id, rows={}):
@@ -16,6 +16,7 @@ class Graph(object):
         self.rows = rows
         self._creation_transaction_id = transaction_id
 
+    @ray.method(num_return_vals=0)
     def insert(self, key, oid, local_edges, foreign_edges, transaction_id):
         """Inserts the data for a node into the graph.
 
@@ -32,7 +33,7 @@ class Graph(object):
 
         if key not in self.rows:
             self.rows[key] = \
-                [_GraphRow(oid, local_edges, foreign_edges, transaction_id)]
+                [_Vertex(oid, local_edges, foreign_edges, transaction_id)]
         else:
             temp_row = self.rows[key][-1].copy(oid=oid,
                                                transaction_id=transaction_id)
@@ -42,6 +43,7 @@ class Graph(object):
                 transaction_id, foreign_edges)
             self.rows[key].append(temp_row)
 
+    @ray.method(num_return_vals=0)
     def update(self, key, node, local_edges, foreign_edges, transaction_id):
         """Updates the data for a node in the graph.
 
@@ -58,6 +60,7 @@ class Graph(object):
         node = last_node.copy(node, local_edges, foreign_edges, transaction_id)
         self._create_or_update_row(key, node)
 
+    @ray.method(num_return_vals=0)
     def delete(self, key, transaction_id):
         """Deletes the data for a node in the graph.
 
@@ -68,7 +71,7 @@ class Graph(object):
         foreign_edges -- the connections to the other graphs.
         transaction_id -- the transaction_id for this update.
         """
-        self._create_or_update_row(key, _DeletedGraphRow(transaction_id))
+        self._create_or_update_row(key, _DeletedVertex(transaction_id))
 
     def _create_or_update_row(self, key, graph_row):
         """Creates or updates the row with the key provided.
@@ -84,11 +87,12 @@ class Graph(object):
         else:
             raise ValueError("Transactions arrived out of order.")
 
+    @ray.method(num_return_vals=0)
     def add_local_edges(self, transaction_id, key, *local_edges):
         """Adds one or more local keys.
         """
         if key not in self.rows:
-            graph_row = _GraphRow().add_local_edges(
+            graph_row = _Vertex().add_local_edges(
                 transaction_id, *local_edges)
         else:
             graph_row = self.rows[key][-1].add_local_edges(
@@ -96,11 +100,12 @@ class Graph(object):
 
         self._create_or_update_row(key, graph_row)
 
+    @ray.method(num_return_vals=0)
     def add_foreign_edges(self, transaction_id, key, graph_id, *foreign_edges):
         """Adds one of more foreign keys.
         """
         if key not in self.rows:
-            graph_row = _GraphRow().add_foreign_edges(
+            graph_row = _Vertex().add_foreign_edges(
                 transaction_id, {graph_id: list(foreign_edges)})
         else:
             graph_row = \
@@ -161,7 +166,7 @@ class Graph(object):
         if len(filtered) > 0:
             return filtered[-1]
         else:
-            return _GraphRow()
+            return _Vertex()
 
     def split(self):
         """Splits the graph into two graphs and returns the new graph.
@@ -188,7 +193,7 @@ class Graph(object):
         return [_connected_components.remote(self.rows)]
 
 
-class _GraphRow(object):
+class _Vertex(object):
     """Contains all data for a row of the Graph Database.
 
     Fields:
@@ -243,7 +248,7 @@ class _GraphRow(object):
         transaction_id -- The system provdided transaction id number.
 
         Returns:
-        A new _GraphRow object containing the filtered keys.
+        A new _Vertex object containing the filtered keys.
         """
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
@@ -260,7 +265,7 @@ class _GraphRow(object):
         graph_ids -- One or more graph ids to apply the filter to.
 
         Returns:
-        A new _GraphRow object containing the filtered keys.
+        A new _Vertex object containing the filtered keys.
         """
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
@@ -286,7 +291,7 @@ class _GraphRow(object):
         values -- One or more values to append to the local keys.
 
         Returns:
-        A new _GraphRow object containing the appended keys.
+        A new _Vertex object containing the appended keys.
         """
         assert transaction_id >= self._transaction_id,\
             "Transactions arrived out of order."
@@ -303,7 +308,7 @@ class _GraphRow(object):
         values -- A dict of {graph_id: set(keys)}.
 
         Returns:
-        A new _GraphRow object containing the appended keys.
+        A new _Vertex object containing the appended keys.
         """
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
@@ -342,7 +347,7 @@ class _GraphRow(object):
         if transaction_id is None:
             transaction_id = self._transaction_id
 
-        return _GraphRow(oid, local_edges, foreign_edges, transaction_id)
+        return _Vertex(oid, local_edges, foreign_edges, transaction_id)
 
     def node_exists(self):
         """True if oid is not None, false otherwise.
@@ -350,11 +355,11 @@ class _GraphRow(object):
         return self.oid is not None
 
 
-class _DeletedGraphRow(_GraphRow):
+class _DeletedVertex(_Vertex):
     """Contains all data for a deleted row.
     """
     def __init__(self, transaction_id):
-        super(_DeletedGraphRow, self).__init__(transaction_id=transaction_id)
+        super(_DeletedVertex, self).__init__(transaction_id=transaction_id)
 
 
 @ray.remote

@@ -11,6 +11,11 @@ make prepare
 # run flake8
 python3 -m flake8
 
+if [ $? -ne 0 ]; then
+	echo "Please fix flake8 errors."
+	exit -1
+fi
+
 # run pytest for python3 on all test files
 python3 -m pytest test/local_manager_test.py
 python3 -m pytest test/graph_test.py

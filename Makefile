@@ -51,7 +51,8 @@ prepare:
 		$(pip) install flake8; \
 	fi
 	$(pip) install pytest==2.8.3
-	$(pip) install ray
+	$(pip) install cython
+	$(pip) install git+https://github.com/ray-project/ray.git#subdirectory=python
 
 .PHONY: help \
 		prepare \
