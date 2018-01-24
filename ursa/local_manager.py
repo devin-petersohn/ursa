@@ -13,12 +13,17 @@ class GraphManager(object):
         """Updates the transaction ID with that of the global graph manager."""
         pass
 
-    def create_graph(self, graph_id, directed=False, new_transaction=True):
+    def create_graph(self,
+                     graph_id,
+                     directed=False,
+                     new_transaction=True,
+                     versions_to_store=5):
         """Create an empty graph.
 
         @param graph_id: The unique name of the new graph.
         @param directed: Whether or not the new graph is directed.
         @param new_transaction: Defaults to true.
+        @param versions_to_store: The number of old graphs to keep in memory
         """
         if new_transaction:
             self._transaction_id += 1
@@ -27,7 +32,8 @@ class GraphManager(object):
             raise ValueError("Graph must be named something.")
         if graph_id in self.graph_dict:
             raise ValueError("Graph name already exists.")
-        self.graph_dict[graph_id] = ug.Graph.remote(self._transaction_id)
+        self.graph_dict[graph_id] = ug.Graph.remote(self._transaction_id,
+                                                    versions_to_store)
         self._graph_config[graph_id] = {}
         self._graph_config[graph_id]["Directed"] = directed
 
@@ -228,10 +234,16 @@ class GraphManager(object):
         """
         second_split = self.graph_dict[graph_id].split.remote()
         t_id = ray.get(self.graph_dict[graph_id].getattr.remote(
-                "_creation_transaction_id"))
+                       "_creation_transaction_id"))
         self.graph_dict[graph_id] = \
             [self.graph_dict[graph_id],
              ug.Graph.remote(t_id, second_split)]
+
+    def clean_old_rows(self):
+        """Background process to spill old rows to disk
+        """
+        for _, g in self.graph_dict.items():
+            g.clean_old_rows()
 
 
 @ray.remote

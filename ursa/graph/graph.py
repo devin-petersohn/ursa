@@ -8,8 +8,9 @@ class Graph(object):
     """This object contains reference and connection information for a graph.
 
     @field vertices: The dictionary of _Vertex objects.
+    @versions_to_store: The number of versions to keep in memory for each node
     """
-    def __init__(self, transaction_id, vertices={}):
+    def __init__(self, transaction_id, versions_to_store=5, vertices={}):
         """The constructor for the Graph object. Initializes all graph data.
 
         @param transaction_id: The system provided transaction id number.
@@ -17,6 +18,7 @@ class Graph(object):
         """
         self.vertices = vertices
         self._creation_transaction_id = transaction_id
+        self._versions_to_store = versions_to_store
 
     @ray.method(num_return_vals=0)
     def insert(self, key, vertex_data, local_edges, foreign_edges,
