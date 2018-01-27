@@ -9,8 +9,8 @@ class LocalEdges(object):
     This object contains a list of edges (both local and in Ray's object store)
     corresponding to a node.
 
-    @field edges: list of OIDs (each OID represents a list of edges in Ray).
-    @field buf: list of edges not yet flushed to Ray.
+    @field edges: List of OIDs (each OID represents a list of edges in Ray).
+    @field buf: List of edges not yet flushed to Ray.
     """
     def __init__(self, *edges):
         """Constructor for LocalEdges class
@@ -30,7 +30,7 @@ class LocalEdges(object):
     def append(self, *values):
         """Append new values to the edge list.
 
-        @param values: values are edge objects.
+        @param values: Values are edge objects.
 
         @return: A list of edges including the new appended values.
         """
