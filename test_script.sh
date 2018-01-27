@@ -9,7 +9,7 @@ source activate ursa-python3-${uuid}
 make prepare
 
 # run flake8
-python3 -m flake8 --exclude env,__pycache__,.git
+python3 -m flake8
 
 if [ $? -ne 0 ]; then
 	echo "Please fix flake8 errors."
@@ -17,9 +17,9 @@ if [ $? -ne 0 ]; then
 fi
 
 # run pytest for python3 on all test files
-python3 -m pytest test/local_manager_test.py
-python3 -m pytest test/graph_test.py
-python3 -m pytest test/test_connected_components.py
+python3 -m pytest -v test/local_manager_test.py
+python3 -m pytest -v test/graph_test.py
+#python3 -m pytest -v test/test_connected_components.py
 
 # deactivate and remove the conda env
 source deactivate
@@ -34,9 +34,9 @@ source activate ursa-python2-${uuid}
 make prepare
 
 #run pytest for python2 on all test files
-python2 -m pytest test/local_manager_test.py
-python2 -m pytest test/graph_test.py
-python2 -m pytest test/test_connected_components.py
+python2 -m pytest -v test/local_manager_test.py
+python2 -m pytest -v test/graph_test.py
+#python2 -m pytest -v test/test_connected_components.py
 
 # deactivate and remove the conda env
 source deactivate

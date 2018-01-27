@@ -155,7 +155,7 @@ class Graph(object):
         @return: the Object ID(s) of the requested local edges.
         """
         edges = self.select(transaction_id, "local_edges", key)
-        return edges.get_edges_oids(), edges.get_buffered_edges()
+        return edges.edges, edges.buf
 
     def select_foreign_edges(self, transaction_id, key=None):
         """Gets the foreign keys for the key and time provided.
@@ -228,18 +228,11 @@ class Graph(object):
         """
         return getattr(self, item)
 
-    def connected_components(self):
-        """Gets the connected components.
-
-        @return: The set of connected components.
-        """
-        return [_connected_components.remote(self.rows)]
-
 
 class _Vertex(object):
     def __init__(self,
                  oid=None,
-                 local_edges=set(),
+                 local_edges=[],
                  foreign_edges={},
                  transaction_id=-1):
         """Contains all data for a row of the Graph Database.
@@ -260,7 +253,12 @@ class _Vertex(object):
         else:
             self.oid = oid
 
-        self.local_edges = LocalEdges(local_edges)
+        if type(local_edges) is LocalEdges:
+            self.local_edges = local_edges
+        elif len(local_edges) == 0:
+            self.local_edges = LocalEdges()
+        else:
+            self.local_edges = LocalEdges(local_edges)
 
         for key in foreign_edges:
             if type(foreign_edges[key]) is not ray.local_scheduler.ObjectID:
@@ -283,12 +281,7 @@ class _Vertex(object):
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
 
-        oid_edges = _apply_filter.remote(filterfn,
-                                        self.local_edges.get_edges_oids())
-        filtered_edges = oid_edges.union(set(filter(filterfn,
-                                       self.local_edges.get_buffered_edges())))
-
-        return self.copy(local_edges=filtered_edges,
+        return self.copy(local_edges=self.local_edges.filter(filterfn),
                          transaction_id=transaction_id)
 
     def filter_foreign_edges(self, filterfn, transaction_id, *graph_ids):
@@ -312,9 +305,10 @@ class _Vertex(object):
 
         for graph_id in graph_ids:
             new_edges[graph_id] = _apply_filter.remote(filterfn,
-                                                      new_edges[graph_id])
+                                                       new_edges[graph_id])
 
-        return self.copy(foreign_edges=new_edges, transaction_id=transaction_id)
+        return self.copy(foreign_edges=new_edges,
+                         transaction_id=transaction_id)
 
     def add_local_edges(self, transaction_id, *values):
         """Append to the local keys based on the provided.
@@ -327,12 +321,8 @@ class _Vertex(object):
         assert transaction_id >= self._transaction_id,\
             "Transactions arrived out of order."
 
-        self.local_edges.add_local_edges(transaction_id, *values)
-        return self
-
-        # return self.copy(local_edges=_apply_append.remote(self.local_edges,
-        #                                                  values),
-        #                  transaction_id=transaction_id)
+        return self.copy(local_edges=self.local_edges.append(*values),
+                         transaction_id=transaction_id)
 
     def add_foreign_edges(self, transaction_id, values):
         """Append to the local edges based on the provided.
@@ -355,13 +345,14 @@ class _Vertex(object):
             new_edges = self.foreign_edges
 
         for graph_id in values:
-            if graph_id not in new_keys:
+            if graph_id not in new_edges:
                 new_edges[graph_id] = values[graph_id]
             else:
                 new_edges[graph_id] = _apply_append.remote(new_edges[graph_id],
-                                                          values[graph_id])
+                                                           values[graph_id])
 
-        return self.copy(foreign_edges=new_edges, transaction_id=transaction_id)
+        return self.copy(foreign_edges=new_edges,
+                         transaction_id=transaction_id)
 
     def copy(self,
              oid=None,
@@ -435,57 +426,3 @@ def _apply_append(collection, values):
             collection.update(val)
 
         return collection
-
-
-@ray.remote
-def _connected_components(adj_list):
-    """Gets the connected components.
-
-    @param adj_list: The adjacency list to be evaluated.
-
-    @return: The set of connected components within the adjacency list.
-    """
-    s = {}
-    c = []
-    for key in adj_list:
-        s[key] = _apply_filter.remote(
-            lambda row: row > key,
-            adj_list[key][-1].local_edges.get_edges_oids())
-
-        if ray.get(_all.remote(key,
-                   adj_list[key][-1].local_edges.get_edges_oids())):
-            c.append(key)
-    return [_get_children.remote(key, s) for key in c]
-
-
-@ray.remote
-def _all(key, adj_list):
-    """Checks if all elements in the adjacency list are greater then the
-       provided key.
-
-    @param key: The unique identifier of the node in the graph.
-    @param adj_list: The adjacency list to be evaluated.
-
-    @return: True if all elements in the adjacency list are greater than the
-             key, false if not.
-    """
-    return all(i > key for i in adj_list)
-
-
-@ray.remote
-def _get_children(key, s):
-    """Gets all the children of the graph.
-
-    @param key: The unique identifier of the node in the graph.
-    @param s: The adjacency list for a graph.
-
-    @return: All children of the graph.
-    """
-    c = ray.get(s[key])
-    try:
-        res = ray.get([_get_children.remote(i, s) for i in c])
-        c.update([j for i in res for j in i])
-    except TypeError as e:
-        print(e)
-    c.add(key)
-    return set(c)
