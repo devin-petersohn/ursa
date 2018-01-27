@@ -166,7 +166,7 @@ class Graph_manager(object):
         @param graph_id: the unique name of the graph.
         @param key: the unique identifier of the node in the graph.
 
-        :return: True if both the graph exists and the node exists in the
+        @return: True if both the graph exists and the node exists in the
                  graph, false otherwise.
         """
         return graph_id in self.graph_dict and \
@@ -178,7 +178,7 @@ class Graph_manager(object):
         @param graph_id: the unique name of the graph.
         @param key: the unique identifier of this data in the graph.
 
-        :return: The Object ID of the selected row, or all rows in
+        @return: The Object ID of the selected row, or all rows in
                  that graph if no key is specified.
         """
         return ray.get(self.graph_dict[graph_id].select_row.remote(
@@ -190,7 +190,7 @@ class Graph_manager(object):
         @param graph_id: the unique name of the graph.
         @param key: the unique identifier of this data in the graph.
 
-        :return: The Object ID(s) of the local edges.
+        @return: The Object ID(s) of the local edges.
         """
         return ray.get(self.graph_dict[graph_id].select_local_edges.remote(
             self._transaction_id, key))[0]
@@ -201,7 +201,7 @@ class Graph_manager(object):
         @param graph_id: the unique name of the graph.
         @param key: the unique identifier of this data in the graph.
 
-        :return: The Object ID(s) of the foreign edges.
+        @return: The Object ID(s) of the foreign edges.
         """
         return ray.get(self.graph_dict[graph_id].select_foreign_edges.remote(
             self._transaction_id, key))[0]
@@ -211,7 +211,7 @@ class Graph_manager(object):
 
         @param graph_id: the unique name of the graph.
 
-        :return: The Graph object for the graph requested.
+        @return: The Graph object for the graph requested.
         """
 
         return self.graph_dict[graph_id]

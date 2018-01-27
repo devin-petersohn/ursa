@@ -130,7 +130,7 @@ class Graph(object):
         @param key: the unique identifier of the node in the graph.
         @param transaction_id: The system provided transaction id number.
 
-        :return: If node exists in graph, returns true, otherwise false.
+        @return: If node exists in graph, returns true, otherwise false.
         """
         return key in self.rows and \
             self._get_history(transaction_id, key).node_exists()
@@ -141,7 +141,7 @@ class Graph(object):
         @param transaction_id: The system provided transaction id number.
         @param key: the unique identifier of the node in the graph.
 
-        :return: the requested row.
+        @return: the requested row.
         """
         return [self.select(transaction_id, "oid", key)]
 
@@ -151,7 +151,7 @@ class Graph(object):
         @param transaction_id: The system provided transaction id number.
         @param key: the unique identifier of the node in the graph.
 
-        :return: the Object ID(s) of the requested local edges.
+        @return: the Object ID(s) of the requested local edges.
         """
         return [self.select(transaction_id, "local_edges", key)]
 
@@ -161,7 +161,7 @@ class Graph(object):
         @param transaction_id: The system provided transaction id number.
         @param key: the unique identifier of the node in the graph.
 
-        :return: the Object ID(s) of the requested foreign edges.
+        @return: the Object ID(s) of the requested foreign edges.
         """
         return [self.select(transaction_id, "foreign_edges", key)]
 
@@ -172,7 +172,7 @@ class Graph(object):
         @param prop: the property to be selected.
         @param key: the unique identifier of the node in the graph.
 
-        :return: If no key is provided, returns all rows from the selected
+        @return: If no key is provided, returns all rows from the selected
                  graph.
         """
         if key is None:
@@ -195,7 +195,7 @@ class Graph(object):
         @param transaction_id: The system provided transaction id number.
         @param key: the unique identifier of the node in the graph.
 
-        :return: The most recent vertex not exceeding the bounds.
+        @return: The most recent vertex not exceeding the bounds.
         """
         filtered = list(filter(lambda p: p._transaction_id <= transaction_id,
                                self.rows[key]))
@@ -208,7 +208,7 @@ class Graph(object):
         """Splits the graph into two graphs and returns the new graph.
         Note: This modifies the existing Graph also.
 
-        :return:A new Graph with half of the rows.
+        @return:A new Graph with half of the rows.
         """
         half = int(len(self.rows)/2)
         items = list(self.rows.items())
@@ -222,14 +222,14 @@ class Graph(object):
 
         @param item: The attribute to be searched for. Must be a string.
 
-        :return: The attribute requested.
+        @return: The attribute requested.
         """
         return getattr(self, item)
 
     def connected_components(self):
         """Gets the connected components.
 
-        :return: The set of connected components.
+        @return: The set of connected components.
         """
         return [_connected_components.remote(self.rows)]
 
@@ -285,7 +285,7 @@ class _Vertex(object):
         @param filterfn: The function to use to filter the keys.
         @param transaction_id: The system provided transaction id number.
 
-        :return:  A new _Vertex object containing the filtered keys.
+        @return:  A new _Vertex object containing the filtered keys.
         """
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
@@ -300,7 +300,7 @@ class _Vertex(object):
         @param transaction_id: The system provided transaction id number.
         @param graph_ids: One or more graph ids to apply the filter to.
 
-        :return: A new _Vertex object containing the filtered keys.
+        @return: A new _Vertex object containing the filtered keys.
         """
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
@@ -324,7 +324,7 @@ class _Vertex(object):
         @param transaction_id: The system provided transaction id number.
         @param values: One or more values to append to the local keys.
 
-        :return: A new _Vertex object containing the appended keys.
+        @return: A new _Vertex object containing the appended keys.
         """
         assert transaction_id >= self._transaction_id,\
             "Transactions arrived out of order."
@@ -339,7 +339,7 @@ class _Vertex(object):
         @param transaction_id: The system provided transaction id number.
         @param values: A dict of {graph_id: set(keys)}.
 
-        :return: A new _Vertex object containing the appended keys.
+        @return: A new _Vertex object containing the appended keys.
         """
         assert transaction_id >= self._transaction_id, \
             "Transactions arrived out of order."
@@ -375,7 +375,7 @@ class _Vertex(object):
         @param foreign_edges: A dictionary of edges between graphs.
         @param transaction_id: The system provided transaction id number.
 
-        :return: A new _Vertex object containing the copy.
+        @return: A new _Vertex object containing the copy.
         """
         if oid is None:
             oid = self.oid
@@ -391,7 +391,7 @@ class _Vertex(object):
     def node_exists(self):
         """Determine if a node exists.
 
-        :return: True if oid is not None, false otherwise.
+        @return: True if oid is not None, false otherwise.
         """
         return self.oid is not None
 
@@ -412,7 +412,7 @@ def _apply_filter(filterfn, obj_to_filter):
     @param filterfn: The function to use to filter the keys.
     @param obj_to_filter: The object to apply the filter to.
 
-    :return: A set that contains the result of the filter.
+    @return: A set that contains the result of the filter.
     """
     return set(filter(filterfn, obj_to_filter))
 
@@ -424,7 +424,7 @@ def _apply_append(collection, values):
     @param collection: The collection to be updated.
     @param values: The updated values.
 
-    :return: The updated collection.
+    @return: The updated collection.
     """
     try:
         collection.update(values)
@@ -442,7 +442,7 @@ def _connected_components(adj_list):
 
     @param adj_list: The adjacency list to be evaluated.
 
-    :return: The set of connected components within the adjacency list.
+    @return: The set of connected components within the adjacency list.
     """
     s = {}
     c = []
@@ -463,7 +463,7 @@ def _all(key, adj_list):
     @param key: the unique identifier of the node in the graph.
     @param adj_list: The adjacency list to be evaluated.
 
-    :return: True if all elements in the adjacency list are greater than the
+    @return: True if all elements in the adjacency list are greater than the
              key, false if not.
     """
     return all(i > key for i in adj_list)
@@ -476,7 +476,7 @@ def _get_children(key, s):
     @param key: the unique identifier of the node in the graph.
     @param s: the adjacency list for a graph.
 
-    :return: all children of the graph.
+    @return: all children of the graph.
     """
     c = ray.get(s[key])
     try:
