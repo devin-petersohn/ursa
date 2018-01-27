@@ -3,8 +3,7 @@ from . import graph as ug
 
 
 class Graph_manager(object):
-    """This object manages all graphs in the system.
-    """
+    """This object manages all graphs in the system."""
     def __init__(self):
         """The constructor for an Graph_collection object. Initializes some toy
         graphs as an example.
@@ -14,15 +13,14 @@ class Graph_manager(object):
         self._transaction_id = 0
 
     def update_transaction_id(self):
-        """Updates the transaction ID with that of the global graph manager.
-        """
+        """Updates the transaction ID with that of the global graph manager."""
         pass
 
     def create_graph(self, graph_id, new_transaction=True):
         """Create an empty graph.
 
-        :param graph_id: the unique name of the new graph.
-        :param new_transaction: Defaults to true.
+        @param graph_id: the unique name of the new graph.
+        @param new_transaction: Defaults to true.
         """
         if new_transaction:
             self._transaction_id += 1
@@ -36,7 +34,7 @@ class Graph_manager(object):
     def _create_if_not_exists(self, graph_id):
         """Create an empty graph if the graph is not found in the Graph Collection.
 
-        :param graph_id: the unique name of the new graph.
+        @param graph_id: the unique name of the new graph.
         """
         if graph_id not in self.graph_dict:
             print("Warning:", str(graph_id),
@@ -47,11 +45,11 @@ class Graph_manager(object):
     def insert(self, graph_id, key, node, local_edges=set(), foreign_edges={}):
         """Adds data to the graph specified.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of this data in the graph.
-        :param node: the data to add to the graph.
-        :param local_edges: A list of edges within this graph, if any.
-        :param foreign_edges: A dictionary: {graph id: key} of edges between
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of this data in the graph.
+        @param node: the data to add to the graph.
+        @param local_edges: A list of edges within this graph, if any.
+        @param foreign_edges: A dictionary: {graph id: key} of edges between
                               graphs, if any.
         """
         self._transaction_id += 1
@@ -91,11 +89,11 @@ class Graph_manager(object):
                foreign_edges=None):
         """Updates the user specified row and all associated edges.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of this data in the graph.
-        :param node: the data to add to the graph.
-        :param local_edges: A list of edges within this graph, if any.
-        :param foreign_edges: A dictionary: {graph id: key} of edges between
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of this data in the graph.
+        @param node: the data to add to the graph.
+        @param local_edges: A list of edges within this graph, if any.
+        @param foreign_edges: A dictionary: {graph id: key} of edges between
                               graphs, if any.
         """
         if node is None and local_edges is None and foreign_edges is None:
@@ -113,8 +111,8 @@ class Graph_manager(object):
     def delete_row(self, graph_id, key):
         """Deletes the user specified row and all associated edges.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of this data in the graph.
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of this data in the graph.
         """
         self._transaction_id += 1
 
@@ -123,9 +121,9 @@ class Graph_manager(object):
     def add_local_edges(self, graph_id, key, *local_edges):
         """Adds one or more local keys to the graph and key provided.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of this data in the graph.
-        :param local_edges: A list of edges within this graph, if any.
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of this data in the graph.
+        @param local_edges: A list of edges within this graph, if any.
         """
         self._transaction_id += 1
         self.graph_dict[graph_id].add_local_edges.remote(
@@ -138,11 +136,11 @@ class Graph_manager(object):
     def add_foreign_edges(self, graph_id, key, other_graph_id, *foreign_edges):
         """Adds one or more foreign keys to the graph and key provided.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of this data in the graph.
-        :param other_graph_id: The ID of the graph to which the foreign edges
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of this data in the graph.
+        @param other_graph_id: The ID of the graph to which the foreign edges
                                will be connected.
-        :param foreign_edges: A dictionary: {graph id: key} of edges between
+        @param foreign_edges: A dictionary: {graph id: key} of edges between
                               graphs, if any.
         """
         self._transaction_id += 1
@@ -165,8 +163,8 @@ class Graph_manager(object):
     def node_exists(self, graph_id, key):
         """Determines whether or not a node exists in the graph.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of the node in the graph.
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of the node in the graph.
 
         :return: True if both the graph exists and the node exists in the
                  graph, false otherwise.
@@ -177,8 +175,8 @@ class Graph_manager(object):
     def select_row(self, graph_id, key=None):
         """Gets all rows for the graph/key specified.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of this data in the graph.
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of this data in the graph.
 
         :return: The Object ID of the selected row, or all rows in
                  that graph if no key is specified.
@@ -189,8 +187,8 @@ class Graph_manager(object):
     def select_local_edges(self, graph_id, key=None):
         """Gets all local edges for the graph/key specified.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of this data in the graph.
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of this data in the graph.
 
         :return: The Object ID(s) of the local edges.
         """
@@ -200,8 +198,8 @@ class Graph_manager(object):
     def select_foreign_edges(self, graph_id, key=None):
         """Gets all foreign edges for the graph/key specified.
 
-        :param graph_id: the unique name of the graph.
-        :param key: the unique identifier of this data in the graph.
+        @param graph_id: the unique name of the graph.
+        @param key: the unique identifier of this data in the graph.
 
         :return: The Object ID(s) of the foreign edges.
         """
@@ -211,7 +209,7 @@ class Graph_manager(object):
     def get_graph(self, graph_id):
         """Gets the graph requested.
 
-        :param graph_id: the unique name of the graph.
+        @param graph_id: the unique name of the graph.
 
         :return: The Graph object for the graph requested.
         """
@@ -221,7 +219,7 @@ class Graph_manager(object):
     def split_graph(self, graph_id):
         """Splits a graph into two graphs.
 
-        :param graph_id: the unique name of the graph.
+        @param graph_id: the unique name of the graph.
         """
 
         second_split = self.graph_dict[graph_id].split.remote()
