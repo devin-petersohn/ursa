@@ -5,13 +5,12 @@ import ray
 class Graph(object):
     """This object contains reference and connection information for a graph.
 
-    Fields:
-    rows -- The dictionary of _Vertex objects.
+    @field rows: The dictionary of _Vertex objects.
     """
     def __init__(self, transaction_id, rows={}):
         """The constructor for the Graph object. Initializes all graph data.
 
-        @param transaction_id:The system provided transaction id number.
+        @param transaction_id: The system provided transaction id number.
         @param rows: The system provided transaction id number.
         """
         self.rows = rows
@@ -21,8 +20,8 @@ class Graph(object):
     def insert(self, key, oid, local_edges, foreign_edges, transaction_id):
         """Inserts the data for a node into the graph.
 
-        @param key: the unique identifier of the node in the graph.
-        @param oid: the Ray ObjectID for the Node object referenced by key.
+        @param key: The unique identifier of the node in the graph.
+        @param oid: The Ray ObjectID for the Node object referenced by key.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         @param foreign_edges: A dictionary of edges between graphs.
@@ -48,8 +47,8 @@ class Graph(object):
     def update(self, key, node, local_edges, foreign_edges, transaction_id):
         """Updates the data for a node in the graph.
 
-        @param key: the unique identifier of the node in the graph.
-        @param node: the Ray ObjectID for the Node object referenced by key.
+        @param key: The unique identifier of the node in the graph.
+        @param node: The Ray ObjectID for the Node object referenced by key.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         @param foreign_edges: A dictionary of edges between graphs.
@@ -65,15 +64,15 @@ class Graph(object):
     def delete(self, key, transaction_id):
         """Deletes the data for a node in the graph.
 
-        @param key: the unique identifier of the node in the graph.
-        @param transaction_id: the transaction_id for this update.
+        @param key: The unique identifier of the node in the graph.
+        @param transaction_id: The transaction_id for this update.
         """
         self._create_or_update_row(key, _DeletedVertex(transaction_id))
 
     def _create_or_update_row(self, key, graph_row):
         """Creates or updates the row with the key provided.
 
-        @param key: the unique identifier of the node in the graph.
+        @param key: The unique identifier of the node in the graph.
         @param graph_row: The row to be created/updated.
         """
         if key not in self.rows:
@@ -92,7 +91,7 @@ class Graph(object):
         """Adds one or more local keys.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: the unique identifier of the node in the graph.
+        @param key: The unique identifier of the node in the graph.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         """
@@ -110,8 +109,8 @@ class Graph(object):
         """Adds one of more foreign keys.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: the unique identifier of the node in the graph.
-        @param graph_id: the unique name of the graph.
+        @param key: The unique identifier of the node in the graph.
+        @param graph_id: The unique name of the graph.
         @param foreign_edges: A dictionary of edges between graphs.
         """
         if key not in self.rows:
@@ -127,7 +126,7 @@ class Graph(object):
     def row_exists(self, key, transaction_id):
         """True if the node existed at the time provided, False otherwise.
 
-        @param key: the unique identifier of the node in the graph.
+        @param key: The unique identifier of the node in the graph.
         @param transaction_id: The system provided transaction id number.
 
         @return: If node exists in graph, returns true, otherwise false.
@@ -139,7 +138,7 @@ class Graph(object):
         """Selects the row with the key given at the time given.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: the unique identifier of the node in the graph.
+        @param key: The unique identifier of the node in the graph.
 
         @return: the requested row.
         """
@@ -149,7 +148,7 @@ class Graph(object):
         """Gets the local keys for the key and time provided.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: the unique identifier of the node in the graph.
+        @param key: The unique identifier of the node in the graph.
 
         @return: the Object ID(s) of the requested local edges.
         """
@@ -159,9 +158,9 @@ class Graph(object):
         """Gets the foreign keys for the key and time provided.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: the unique identifier of the node in the graph.
+        @param key: The unique identifier of the node in the graph.
 
-        @return: the Object ID(s) of the requested foreign edges.
+        @return: The Object ID(s) of the requested foreign edges.
         """
         return [self.select(transaction_id, "foreign_edges", key)]
 
@@ -169,8 +168,8 @@ class Graph(object):
         """Selects the property given at the time given.
 
         @param transaction_id: The system provided transaction id number.
-        @param prop: the property to be selected.
-        @param key: the unique identifier of the node in the graph.
+        @param prop: The property to be selected.
+        @param key: The unique identifier of the node in the graph.
 
         @return: If no key is provided, returns all rows from the selected
                  graph.
@@ -193,7 +192,7 @@ class Graph(object):
         """Gets the historical state of the object with the key provided.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: the unique identifier of the node in the graph.
+        @param key: The unique identifier of the node in the graph.
 
         @return: The most recent vertex not exceeding the bounds.
         """
@@ -208,7 +207,7 @@ class Graph(object):
         """Splits the graph into two graphs and returns the new graph.
         Note: This modifies the existing Graph also.
 
-        @return:A new Graph with half of the rows.
+        @return: A new Graph with half of the rows.
         """
         half = int(len(self.rows)/2)
         items = list(self.rows.items())
@@ -242,7 +241,7 @@ class _Vertex(object):
                  transaction_id=-1):
         """Contains all data for a row of the Graph Database.
 
-        @param oid: the Ray ObjectID for the Node object referenced by key.
+        @param oid: The Ray ObjectID for the Node object referenced by key.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         @param foreign_edges: A dictionary of edges between graphs.
@@ -400,7 +399,7 @@ class _DeletedVertex(_Vertex):
     def __init__(self, transaction_id):
         """Contains all data for a deleted row.
 
-        @param transaction_id: The transactions ID for deleting the row.
+        @param transaction_id: The transaction ID for deleting the row.
         """
         super(_DeletedVertex, self).__init__(transaction_id=transaction_id)
 
@@ -460,7 +459,7 @@ def _all(key, adj_list):
     """Checks if all elements in the adjacency list are greater then the
        provided key.
 
-    @param key: the unique identifier of the node in the graph.
+    @param key: The unique identifier of the node in the graph.
     @param adj_list: The adjacency list to be evaluated.
 
     @return: True if all elements in the adjacency list are greater than the
@@ -473,10 +472,10 @@ def _all(key, adj_list):
 def _get_children(key, s):
     """Gets all the children of the graph.
 
-    @param key: the unique identifier of the node in the graph.
-    @param s: the adjacency list for a graph.
+    @param key: The unique identifier of the node in the graph.
+    @param s: The adjacency list for a graph.
 
-    @return: all children of the graph.
+    @return: All children of the graph.
     """
     c = ray.get(s[key])
     try:

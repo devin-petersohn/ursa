@@ -88,7 +88,7 @@ def build_dna_graph(reference_genome, dna_test_data, graph_collection):
 
 
 ray.init()
-graph_collection = ursa.Graph_manager()
+graph_collection = ursa.GraphManager()
 
 reference_genome = "CAGTCCTAGCTACGCTCTATCCTCTCAGAGGACCGATCGATATACGCGT\
                     GAAACTAGTGCACTAGACTCGAACTGA"

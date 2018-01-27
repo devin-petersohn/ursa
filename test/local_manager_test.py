@@ -9,7 +9,7 @@ test_graph_id = "Test Graph"
 
 @pytest.fixture
 def init_test():
-    manager = ursa.Graph_manager()
+    manager = ursa.GraphManager()
     manager.create_graph(test_graph_id)
     return manager
 

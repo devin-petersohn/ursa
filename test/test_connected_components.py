@@ -7,7 +7,7 @@ ray.init()
 def test_connected_components():
     test_graph_id = "Test Graph"
 
-    manager = ursa.Graph_manager()
+    manager = ursa.GraphManager()
     manager.create_graph(test_graph_id)
 
     manager.insert(test_graph_id, "Key1", "Value1")
