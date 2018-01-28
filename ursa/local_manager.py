@@ -83,7 +83,7 @@ class GraphManager(object):
 
     def update(self, graph_id, key, node=None, local_edges=None,
                foreign_edges=None):
-        """Updates the user specified row and all associated edges.
+        """Updates the user specified vertex and all associated edges.
 
         @param graph_id: The unique name of the graph.
         @param key: The unique identifier of this data in the graph.
@@ -104,8 +104,8 @@ class GraphManager(object):
                                                 foreign_edges,
                                                 self._transaction_id)
 
-    def delete_row(self, graph_id, key):
-        """Deletes the user specified row and all associated edges.
+    def delete_vertex(self, graph_id, key):
+        """Deletes the user specified vertex and all associated edges.
 
         @param graph_id: The unique name of the graph.
         @param key: The unique identifier of this data in the graph.
@@ -166,18 +166,18 @@ class GraphManager(object):
                  graph, false otherwise.
         """
         return graph_id in self.graph_dict and \
-            self.graph_dict[graph_id].row_exists.remote(key)
+            self.graph_dict[graph_id].vertex_exists.remote(key)
 
-    def select_row(self, graph_id, key=None):
-        """Gets all rows for the graph/key specified.
+    def select_vertex(self, graph_id, key=None):
+        """Gets all vertices for the graph/key specified.
 
         @param graph_id: The unique name of the graph.
         @param key: The unique identifier of this data in the graph.
 
-        @return: The Object ID of the selected row, or all rows in
+        @return: The Object ID of the selected vertex, or all vertices in
                  that graph if no key is specified.
         """
-        return ray.get(self.graph_dict[graph_id].select_row.remote(
+        return ray.get(self.graph_dict[graph_id].select_vertex.remote(
             self._transaction_id, key))[0]
 
     def select_local_edges(self, graph_id, key=None):

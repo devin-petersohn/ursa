@@ -6,15 +6,15 @@ from .local_edges import LocalEdges
 class Graph(object):
     """This object contains reference and connection information for a graph.
 
-    @field rows: The dictionary of _Vertex objects.
+    @field vertices: The dictionary of _Vertex objects.
     """
-    def __init__(self, transaction_id, rows={}):
+    def __init__(self, transaction_id, vertices={}):
         """The constructor for the Graph object. Initializes all graph data.
 
         @param transaction_id: The system provided transaction id number.
-        @param rows: The system provided transaction id number.
+        @param vertices: The system provided transaction id number.
         """
-        self.rows = rows
+        self.vertices = vertices
         self._creation_transaction_id = transaction_id
 
     @ray.method(num_return_vals=0)
@@ -32,17 +32,17 @@ class Graph(object):
             raise ValueError(
                 "Foreign edges require destination graph to be specified.")
 
-        if key not in self.rows:
-            self.rows[key] = \
+        if key not in self.vertices:
+            self.vertices[key] = \
                 [_Vertex(oid, local_edges, foreign_edges, transaction_id)]
         else:
-            temp_row = self.rows[key][-1].copy(oid=oid,
-                                               transaction_id=transaction_id)
-            temp_row = temp_row.add_local_edges(
+            temp_vertex = self.vertices[key][-1] \
+                .copy(oid=oid, transaction_id=transaction_id)
+            temp_vertex = temp_vertex.add_local_edges(
                 transaction_id, local_edges)
-            temp_row = temp_row.add_foreign_edges(
+            temp_vertex = temp_vertex.add_foreign_edges(
                 transaction_id, foreign_edges)
-            self.rows[key].append(temp_row)
+            self.vertices[key].append(temp_vertex)
 
     @ray.method(num_return_vals=0)
     def update(self, key, node, local_edges, foreign_edges, transaction_id):
@@ -55,11 +55,11 @@ class Graph(object):
         @param foreign_edges: A dictionary of edges between graphs.
         @param transaction_id: The system provided transaction id number.
         """
-        assert self.row_exists(key, transaction_id), "Key does not exist"
+        assert self.vertex_exists(key, transaction_id), "Key does not exist"
 
-        last_node = self.rows[key][-1]
+        last_node = self.vertices[key][-1]
         node = last_node.copy(node, local_edges, foreign_edges, transaction_id)
-        self._create_or_update_row(key, node)
+        self._create_or_update_vertex(key, node)
 
     @ray.method(num_return_vals=0)
     def delete(self, key, transaction_id):
@@ -68,22 +68,24 @@ class Graph(object):
         @param key: The unique identifier of the node in the graph.
         @param transaction_id: The transaction_id for this update.
         """
-        self._create_or_update_row(key, _DeletedVertex(transaction_id))
+        self._create_or_update_vertex(key, _DeletedVertex(transaction_id))
 
-    def _create_or_update_row(self, key, graph_row):
-        """Creates or updates the row with the key provided.
+    def _create_or_update_vertex(self, key, graph_vertex):
+        """Creates or updates the vertex with the key provided.
 
         @param key: The unique identifier of the node in the graph.
-        @param graph_row: The row to be created/updated.
+        @param graph_vertex: The vertex to be created/updated.
         """
-        if key not in self.rows:
-            self.rows[key] = [graph_row]
-        elif graph_row._transaction_id == self.rows[key][-1]._transaction_id:
+        if key not in self.vertices:
+            self.vertices[key] = [graph_vertex]
+        elif graph_vertex._transaction_id == \
+                self.vertices[key][-1]._transaction_id:
             # reassignment here because this is an update from within the
             # same transaction
-            self.rows[key][-1] = graph_row
-        elif graph_row._transaction_id > self.rows[key][-1]._transaction_id:
-            self.rows[key].append(graph_row)
+            self.vertices[key][-1] = graph_vertex
+        elif graph_vertex._transaction_id > \
+                self.vertices[key][-1]._transaction_id:
+            self.vertices[key].append(graph_vertex)
         else:
             raise ValueError("Transactions arrived out of order.")
 
@@ -96,14 +98,14 @@ class Graph(object):
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         """
-        if key not in self.rows:
-            graph_row = _Vertex().add_local_edges(
+        if key not in self.vertices:
+            graph_vertex = _Vertex().add_local_edges(
                 transaction_id, *local_edges)
         else:
-            graph_row = self.rows[key][-1].add_local_edges(
+            graph_vertex = self.vertices[key][-1].add_local_edges(
                 transaction_id, *local_edges)
 
-        self._create_or_update_row(key, graph_row)
+        self._create_or_update_vertex(key, graph_vertex)
 
     @ray.method(num_return_vals=0)
     def add_foreign_edges(self, transaction_id, key, graph_id, *foreign_edges):
@@ -114,17 +116,17 @@ class Graph(object):
         @param graph_id: The unique name of the graph.
         @param foreign_edges: A dictionary of edges between graphs.
         """
-        if key not in self.rows:
-            graph_row = _Vertex().add_foreign_edges(
+        if key not in self.vertices:
+            graph_vertex = _Vertex().add_foreign_edges(
                 transaction_id, {graph_id: list(foreign_edges)})
         else:
-            graph_row = \
-                self.rows[key][-1].add_foreign_edges(
+            graph_vertex = \
+                self.vertices[key][-1].add_foreign_edges(
                     transaction_id, {graph_id: list(foreign_edges)})
 
-        self._create_or_update_row(key, graph_row)
+        self._create_or_update_vertex(key, graph_vertex)
 
-    def row_exists(self, key, transaction_id):
+    def vertex_exists(self, key, transaction_id):
         """True if the node existed at the time provided, False otherwise.
 
         @param key: The unique identifier of the node in the graph.
@@ -132,16 +134,16 @@ class Graph(object):
 
         @return: If node exists in graph, returns true, otherwise false.
         """
-        return key in self.rows and \
+        return key in self.vertices and \
             self._get_history(transaction_id, key).node_exists()
 
-    def select_row(self, transaction_id, key=None):
-        """Selects the row with the key given at the time given.
+    def select_vertex(self, transaction_id, key=None):
+        """Selects the vertex with the key given at the time given.
 
         @param transaction_id: The system provided transaction id number.
         @param key: The unique identifier of the node in the graph.
 
-        @return: the requested row.
+        @return: the requested vertex.
         """
         return [self.select(transaction_id, "oid", key)]
 
@@ -174,19 +176,19 @@ class Graph(object):
         @param prop: The property to be selected.
         @param key: The unique identifier of the node in the graph.
 
-        @return: If no key is provided, returns all rows from the selected
+        @return: If no key is provided, returns all vertices from the selected
                  graph.
         """
         if key is None:
-            rows = {}
-            for key in self.rows:
-                row_at_time = self._get_history(transaction_id, key)
-                if prop != "oid" or row_at_time.node_exists():
-                    rows[key] = getattr(row_at_time, prop)
-            return rows
+            vertices = {}
+            for key in self.vertices:
+                vertex_at_time = self._get_history(transaction_id, key)
+                if prop != "oid" or vertex_at_time.node_exists():
+                    vertices[key] = getattr(vertex_at_time, prop)
+            return vertices
         else:
-            if key not in self.rows:
-                raise ValueError("Key Error. Row does not exist.")
+            if key not in self.vertices:
+                raise ValueError("Key Error. vertex does not exist.")
 
             obj = self._get_history(transaction_id, key)
             return getattr(obj, prop)
@@ -200,7 +202,7 @@ class Graph(object):
         @return: The most recent vertex not exceeding the bounds.
         """
         filtered = list(filter(lambda p: p._transaction_id <= transaction_id,
-                               self.rows[key]))
+                               self.vertices[key]))
         if len(filtered) > 0:
             return filtered[-1]
         else:
@@ -210,13 +212,13 @@ class Graph(object):
         """Splits the graph into two graphs and returns the new graph.
         Note: This modifies the existing Graph also.
 
-        @return: A new Graph with half of the rows.
+        @return: A new Graph with half of the vertices.
         """
-        half = int(len(self.rows)/2)
-        items = list(self.rows.items())
+        half = int(len(self.vertices)/2)
+        items = list(self.vertices.items())
         items.sort()
         second_dict = dict(items[half:])
-        self.rows = dict(items[:half])
+        self.vertices = dict(items[:half])
         return second_dict
 
     def getattr(self, item):
@@ -235,13 +237,13 @@ class _Vertex(object):
                  local_edges=[],
                  foreign_edges={},
                  transaction_id=-1):
-        """Contains all data for a row of the Graph Database.
+        """Contains all data for a vertex of the Graph Database.
 
         @param oid: The Ray ObjectID for the Node object referenced by key.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         @param foreign_edges: A dictionary of edges between graphs.
-        @param transaction_id: The transaction_id that generated this row.
+        @param transaction_id: The transaction_id that generated this vertex.
         """
         # The only thing we keep as its actual value is the None to filter
         if oid is not None:
@@ -390,9 +392,9 @@ class _Vertex(object):
 
 class _DeletedVertex(_Vertex):
     def __init__(self, transaction_id):
-        """Contains all data for a deleted row.
+        """Contains all data for a deleted vertex.
 
-        @param transaction_id: The transaction ID for deleting the row.
+        @param transaction_id: The transaction ID for deleting the vertex.
         """
         super(_DeletedVertex, self).__init__(transaction_id=transaction_id)
 

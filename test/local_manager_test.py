@@ -49,8 +49,8 @@ def test_insert_and_select_roundtrip():
     manager = init_test()
     manager.insert(test_graph_id, "Key1", "Value1")
 
-    row_query1 = manager.select_row(test_graph_id, "Key1")
-    assert ray.get(row_query1) == "Value1"
+    vertex_query1 = manager.select_vertex(test_graph_id, "Key1")
+    assert ray.get(vertex_query1) == "Value1"
 
     l_key_query1 = manager.select_local_edges(test_graph_id, "Key1")
     assert ray.get(l_key_query1) == []
@@ -60,8 +60,8 @@ def test_insert_and_select_roundtrip():
 
     manager.insert(test_graph_id, "Key2", "Value2", "Key1")
 
-    row_query2 = manager.select_row(test_graph_id, "Key2")
-    assert ray.get(row_query2) == "Value2"
+    vertex_query2 = manager.select_vertex(test_graph_id, "Key2")
+    assert ray.get(vertex_query2) == "Value2"
 
     l_key_query2 = manager.select_local_edges(test_graph_id, "Key2")
     assert ray.get(l_key_query2) == ["Key1"]
@@ -73,18 +73,18 @@ def test_insert_and_select_roundtrip():
     f_key_query2 = manager.select_foreign_edges(test_graph_id, "Key1")
     assert f_key_query2 == {}
 
-    # testing the foreign key functionality
+    # testing the foreign edge functionality
     manager.insert(test_graph_id, "Key3", "Value3",
-                   foreign_edges={"Other Graph": "Foreign Key"})
+                   foreign_edges={"Other Graph": "Foreign Edge"})
 
-    row_query3 = manager.select_row(test_graph_id, "Key3")
-    assert ray.get(row_query3) == "Value3"
+    vertex_query3 = manager.select_vertex(test_graph_id, "Key3")
+    assert ray.get(vertex_query3) == "Value3"
 
     l_key_query3 = manager.select_local_edges(test_graph_id, "Key3")
     assert ray.get(l_key_query3) == []
 
     f_key_query3 = manager.select_foreign_edges(test_graph_id, "Key3")
-    assert ray.get(f_key_query3["Other Graph"]) == set(["Foreign Key"])
+    assert ray.get(f_key_query3["Other Graph"]) == set(["Foreign Edge"])
 
 
 def test_add_local_edges():
@@ -113,11 +113,11 @@ def test_add_foreign_edges():
     assert f_key_query1 == {}
 
     manager.add_foreign_edges(
-        test_graph_id, "Key1", "Other Graph", "Foreign Key")
+        test_graph_id, "Key1", "Other Graph", "Foreign Edge")
     f_key_query1 = manager.select_foreign_edges(test_graph_id, "Key1")
-    assert ray.get(f_key_query1["Other Graph"]) == set(["Foreign Key"])
+    assert ray.get(f_key_query1["Other Graph"]) == set(["Foreign Edge"])
 
-    f_key_query2 = manager.select_foreign_edges("Other Graph", "Foreign Key")
+    f_key_query2 = manager.select_foreign_edges("Other Graph", "Foreign Edge")
     assert ray.get(f_key_query2[test_graph_id]) == set(["Key1"])
 
 
@@ -129,13 +129,13 @@ def test_split():
 
     assert len(manager.graph_dict[test_graph_id]) == 2
     assert ray.get(
-        manager.graph_dict[test_graph_id][0].row_exists.remote("Key1", 10))
+        manager.graph_dict[test_graph_id][0].vertex_exists.remote("Key1", 10))
     assert not ray.get(
-        manager.graph_dict[test_graph_id][0].row_exists.remote("Key2", 10))
+        manager.graph_dict[test_graph_id][0].vertex_exists.remote("Key2", 10))
     assert not ray.get(
-        manager.graph_dict[test_graph_id][1].row_exists.remote("Key1", 10))
+        manager.graph_dict[test_graph_id][1].vertex_exists.remote("Key1", 10))
     assert ray.get(
-        manager.graph_dict[test_graph_id][1].row_exists.remote("Key2", 10))
+        manager.graph_dict[test_graph_id][1].vertex_exists.remote("Key2", 10))
 
 
 def test_update():
@@ -144,7 +144,8 @@ def test_update():
     manager.insert(test_graph_id, "Key4", "Value4")
     manager.update(test_graph_id, "Key3", "UpdatedValue")
 
-    assert ray.get(manager.select_row(test_graph_id, "Key3")) == "UpdatedValue"
+    assert \
+        ray.get(manager.select_vertex(test_graph_id, "Key3")) == "UpdatedValue"
 
 
 def test_update_no_args():
