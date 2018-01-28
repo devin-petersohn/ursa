@@ -52,6 +52,7 @@ prepare:
 	fi
 	$(pip) install pytest==2.8.3
 	$(pip) install cython
+	$(pip) install cmake
 	$(pip) install git+https://github.com/ray-project/ray.git#subdirectory=python
 
 .PHONY: help \

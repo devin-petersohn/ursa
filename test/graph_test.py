@@ -19,14 +19,14 @@ def test_simple_insert():
     transaction_id = 0
     graph.insert.remote(key, oid, local_edges, foreign_edges, transaction_id)
 
-    assert(ray.get(ray.get(
-        graph.select_row.remote(transaction_id, key))[0]) == "Value1")
+    assert ray.get(ray.get(
+        graph.select_row.remote(transaction_id, key))[0]) == "Value1"
 
-    assert(ray.get(ray.get(
-        graph.select_local_edges.remote(transaction_id, key))[0]) == [])
+    assert ray.get(ray.get(
+        graph.select_local_edges.remote(transaction_id, key))[0]) == []
 
-    assert(ray.get(
-        graph.select_foreign_edges.remote(transaction_id, key))[0] == {})
+    assert ray.get(
+        graph.select_foreign_edges.remote(transaction_id, key))[0] == {}
 
 
 def test_insert_with_local_edges():
@@ -48,8 +48,8 @@ def test_insert_with_local_edges():
     final.sort()
     assert final == ["Key2", "Key3"]
 
-    assert(ray.get(
-        graph.select_foreign_edges.remote(transaction_id, key))[0] == {})
+    assert ray.get(
+        graph.select_foreign_edges.remote(transaction_id, key))[0] == {}
 
 
 def test_insert_with_foreign_edges():
@@ -61,14 +61,14 @@ def test_insert_with_foreign_edges():
     transaction_id = 0
     graph.insert.remote(key, oid, local_edges, foreign_edges, transaction_id)
 
-    assert(ray.get(ray.get(
-        graph.select_row.remote(transaction_id, key))[0]) == "Value1")
+    assert ray.get(ray.get(
+        graph.select_row.remote(transaction_id, key))[0]) == "Value1"
 
-    assert(ray.get(ray.get(
-        graph.select_local_edges.remote(transaction_id, key))[0]) == [])
+    assert ray.get(ray.get(
+        graph.select_local_edges.remote(transaction_id, key))[0]) == []
 
-    assert(ray.get(ray.get(graph.select_foreign_edges.remote(
-            transaction_id, key))[0]["Other Graph"]) == set(["Other Key"]))
+    assert ray.get(ray.get(graph.select_foreign_edges.remote(
+            transaction_id, key))[0]["Other Graph"]) == set(["Other Key"])
 
 
 def test_insert_with_local_and_foreign_edges():
@@ -80,8 +80,8 @@ def test_insert_with_local_and_foreign_edges():
     transaction_id = 0
     graph.insert.remote(key, oid, local_edges, foreign_edges, transaction_id)
 
-    assert(ray.get(ray.get(
-        graph.select_row.remote(transaction_id, key))[0]) == "Value1")
+    assert ray.get(ray.get(
+        graph.select_row.remote(transaction_id, key))[0]) == "Value1"
 
     r = ray.get(graph.select_local_edges.remote(transaction_id, key))
     c = ray.get(r[0])
@@ -90,8 +90,8 @@ def test_insert_with_local_and_foreign_edges():
     final.sort()
     assert final == ["Key2", "Key3"]
 
-    assert(ray.get(ray.get(graph.select_foreign_edges.remote(
-            transaction_id, key))[0]["Other Graph"]) == set(["Other Key"]))
+    assert ray.get(ray.get(graph.select_foreign_edges.remote(
+            transaction_id, key))[0]["Other Graph"]) == set(["Other Key"])
 
 
 def test_add_single_local_key():
@@ -140,8 +140,8 @@ def test_add_single_foreign_key():
     graph.add_foreign_edges.remote(
         transaction_id, key, "Other Graph", "Other Key1")
 
-    assert(ray.get(ray.get(graph.select_foreign_edges.remote(
-            transaction_id, key))[0]["Other Graph"]) == set(["Other Key1"]))
+    assert ray.get(ray.get(graph.select_foreign_edges.remote(
+            transaction_id, key))[0]["Other Graph"]) == set(["Other Key1"])
 
 
 def test_add_multiple_foreign_edges():
@@ -156,9 +156,9 @@ def test_add_multiple_foreign_edges():
         transaction_id, key, "Other Graph", "Other Key1", "Other Key2",
         "Other Key3")
 
-    assert(ray.get(ray.get(graph.select_foreign_edges.remote(
+    assert ray.get(ray.get(graph.select_foreign_edges.remote(
             transaction_id, key))[0]["Other Graph"]
-            ) == set(["Other Key1", "Other Key2", "Other Key3"]))
+            ) == set(["Other Key1", "Other Key2", "Other Key3"])
 
 
 def test_delete():
@@ -170,11 +170,11 @@ def test_delete():
     transaction_id = 0
     graph.insert.remote(key, oid, local_edges, foreign_edges, transaction_id)
 
-    assert(ray.get(graph.row_exists.remote(key, transaction_id)))
+    assert ray.get(graph.row_exists.remote(key, transaction_id))
     transaction_id += 1
     graph.delete.remote("Key1", transaction_id)
-    assert(ray.get(graph.row_exists.remote(key, transaction_id - 1)))
-    assert(not ray.get(graph.row_exists.remote(key, transaction_id)))
+    assert ray.get(graph.row_exists.remote(key, transaction_id - 1))
+    assert not ray.get(graph.row_exists.remote(key, transaction_id))
 
 
 def test_split():
