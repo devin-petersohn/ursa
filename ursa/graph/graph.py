@@ -1,5 +1,7 @@
 import ray
 from .local_edges import LocalEdges
+from .utils import _apply_filter
+from .utils import _apply_append
 
 
 @ray.remote(num_cpus=2)
@@ -399,32 +401,4 @@ class _DeletedVertex(_Vertex):
         super(_DeletedVertex, self).__init__(transaction_id=transaction_id)
 
 
-@ray.remote
-def _apply_filter(filterfn, obj_to_filter):
-    """Apply a filter function to a specified object.
 
-    @param filterfn: The function to use to filter the keys.
-    @param obj_to_filter: The object to apply the filter to.
-
-    @return: A set that contains the result of the filter.
-    """
-    return set(filter(filterfn, obj_to_filter))
-
-
-@ray.remote
-def _apply_append(collection, values):
-    """Updates the collection with the provided values.
-
-    @param collection: The collection to be updated.
-    @param values: The updated values.
-
-    @return: The updated collection.
-    """
-    try:
-        collection.update(values)
-        return collection
-    except TypeError:
-        for val in values:
-            collection.update(val)
-
-        return collection

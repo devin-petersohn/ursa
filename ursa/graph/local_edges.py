@@ -1,5 +1,6 @@
 import ray
 import numpy as np
+from .utils import _filter_remote
 
 MAX_SUBLIST_SIZE = 10
 
@@ -63,15 +64,3 @@ class LocalEdges(object):
 
         return new_edges
 
-
-@ray.remote
-def _filter_remote(filterfn, chunk):
-    """Apply a filter function to an object.
-
-    @param filterfn: The filter function to be applied to the list of
-                     edges.
-    @param chunk: The object to which the filter will be applied.
-
-    @return: An array of filtered objects.
-    """
-    return np.array(filter(filterfn, chunk))
