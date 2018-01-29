@@ -1,6 +1,7 @@
 import ray
 from .vertex import _Vertex
 from .vertex import _DeletedVertex
+from .utils import write_row
 
 
 @ray.remote(num_cpus=2)
@@ -8,7 +9,9 @@ class Graph(object):
     """This object contains reference and connection information for a graph.
 
     @field vertices: The dictionary of _Vertex objects.
-    @versions_to_store: The number of versions to keep in memory for each node
+    @field versions_to_store: The number of versions to keep in memory for each
+                              node
+    @field graph_id: The globally unique ID to identify this graph.
     """
     def __init__(self, transaction_id, versions_to_store=5, vertices={}):
         """The constructor for the Graph object. Initializes all graph data.
@@ -19,6 +22,7 @@ class Graph(object):
         self.vertices = vertices
         self._creation_transaction_id = transaction_id
         self._versions_to_store = versions_to_store
+        self.graph_id = graph_id
 
     @ray.method(num_return_vals=0)
     def insert(self, key, vertex_data, local_edges, foreign_edges,
@@ -236,3 +240,13 @@ class Graph(object):
         @return: The attribute requested.
         """
         return getattr(self, item)
+
+    def clean_old_rows(self):
+        """Spills all rows older than versions_to_store to disk.
+        """
+        for k, rows in self.rows.items():
+            if len(rows) < self.versions_to_store:
+                continue
+            self.rows[k] = rows[-self.versions_to_store:]
+            rows_to_write = rows[:-self.versions_to_store]
+            [write_row(r, self.graph_id, k) for r in rows_to_write]

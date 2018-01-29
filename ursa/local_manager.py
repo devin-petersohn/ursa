@@ -33,7 +33,8 @@ class GraphManager(object):
         if graph_id in self.graph_dict:
             raise ValueError("Graph name already exists.")
         self.graph_dict[graph_id] = ug.Graph.remote(self._transaction_id,
-                                                    versions_to_store)
+                                                    versions_to_store,
+                                                    graph_id)
         self._graph_config[graph_id] = {}
         self._graph_config[graph_id]["Directed"] = directed
 
