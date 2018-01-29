@@ -7,7 +7,7 @@ ray.init()
 
 @pytest.fixture
 def init_test():
-    return ursa.graph.Graph.remote(0)
+    return ursa.graph.Graph.remote(0, 0)
 
 
 def test_simple_insert():
@@ -205,7 +205,8 @@ def test_split():
                         transaction_id)
 
     second_graph = ursa.graph.Graph.remote(transaction_id,
-                                           graph.split.remote())
+                                           key,
+                                           rows=graph.split.remote())
 
     assert ray.get(graph.vertex_exists.remote("Key1", transaction_id))
     assert not \
