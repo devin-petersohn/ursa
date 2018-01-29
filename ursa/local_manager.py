@@ -6,16 +6,18 @@ class GraphManager(object):
     """This object manages all graphs in the system."""
     def __init__(self):
         self.graph_dict = {}
+        self._graph_config = {}
         self._transaction_id = 0
 
     def update_transaction_id(self):
         """Updates the transaction ID with that of the global graph manager."""
         pass
 
-    def create_graph(self, graph_id, new_transaction=True):
+    def create_graph(self, graph_id, directed=False, new_transaction=True):
         """Create an empty graph.
 
         @param graph_id: The unique name of the new graph.
+        @param directed: Whether or not the new graph is directed.
         @param new_transaction: Defaults to true.
         """
         if new_transaction:
@@ -26,6 +28,8 @@ class GraphManager(object):
         if graph_id in self.graph_dict:
             raise ValueError("Graph name already exists.")
         self.graph_dict[graph_id] = ug.Graph.remote(self._transaction_id)
+        self._graph_config[graph_id] = {}
+        self._graph_config[graph_id]["Directed"] = directed
 
     def _create_if_not_exists(self, graph_id):
         """Create an empty graph if the graph is not found in the Graph Collection.
@@ -67,19 +71,21 @@ class GraphManager(object):
         except TypeError:
             local_edges = set(local_edges)
 
-        for back_edge_key in local_edges:
-            self.graph_dict[graph_id].add_local_edges.remote(
-                self._transaction_id, back_edge_key, key)
+        if not self._graph_config[graph_id]["Directed"]:
+            # create back edges if the graph is directed
+            for back_edge_key in local_edges:
+                self.graph_dict[graph_id].add_local_edges.remote(
+                    self._transaction_id, back_edge_key, key)
 
-        for other_graph_id in foreign_edges:
-            self._create_if_not_exists(other_graph_id)
+            for other_graph_id in foreign_edges:
+                self._create_if_not_exists(other_graph_id)
 
-            for back_edge_key in foreign_edges:
-                self.graph_dict[other_graph_id].add_foreign_edges.remote(
-                    self._transaction_id,
-                    back_edge_key,
-                    graph_id,
-                    key)
+                for back_edge_key in foreign_edges:
+                    self.graph_dict[other_graph_id].add_foreign_edges.remote(
+                        self._transaction_id,
+                        back_edge_key,
+                        graph_id,
+                        key)
 
     def update(self, graph_id, key, node=None, local_edges=None,
                foreign_edges=None):
@@ -93,8 +99,7 @@ class GraphManager(object):
                               graphs, if any.
         """
         if node is None and local_edges is None and foreign_edges is None:
-            raise ValueError(
-                "No values provided to update.")
+            raise ValueError("No values provided to update.")
 
         self._transaction_id += 1
 
@@ -125,9 +130,11 @@ class GraphManager(object):
         self.graph_dict[graph_id].add_local_edges.remote(
             self._transaction_id, key, *local_edges)
 
-        for back_edge_key in local_edges:
-            self.graph_dict[graph_id].add_local_edges.remote(
-                self._transaction_id, back_edge_key, key)
+        if not self._graph_config[graph_id]["Directed"]:
+            # create back edges if the graph is not directed
+            for back_edge_key in local_edges:
+                self.graph_dict[graph_id].add_local_edges.remote(
+                    self._transaction_id, back_edge_key, key)
 
     def add_foreign_edges(self, graph_id, key, other_graph_id, *foreign_edges):
         """Adds one or more foreign keys to the graph and key provided.
@@ -147,16 +154,17 @@ class GraphManager(object):
             other_graph_id,
             *foreign_edges)
 
-        self._create_if_not_exists(other_graph_id)
+        if not self._graph_config[graph_id]["Directed"]:
+            self._create_if_not_exists(other_graph_id)
+            # create back edges if the graph is not directed
+            for back_edge_key in foreign_edges:
+                self.graph_dict[other_graph_id].add_foreign_edges.remote(
+                    self._transaction_id,
+                    back_edge_key,
+                    graph_id,
+                    key)
 
-        for back_edge_key in foreign_edges:
-            self.graph_dict[other_graph_id].add_foreign_edges.remote(
-                self._transaction_id,
-                back_edge_key,
-                graph_id,
-                key)
-
-    def node_exists(self, graph_id, key):
+    def vertex_exists(self, graph_id, key):
         """Determines whether or not a node exists in the graph.
 
         @param graph_id: The unique name of the graph.
@@ -166,7 +174,8 @@ class GraphManager(object):
                  graph, false otherwise.
         """
         return graph_id in self.graph_dict and \
-            self.graph_dict[graph_id].vertex_exists.remote(key)
+            ray.get(self.graph_dict[graph_id]
+                    .vertex_exists.remote(key, self._transaction_id))
 
     def select_vertex(self, graph_id, key=None):
         """Gets all vertices for the graph/key specified.
