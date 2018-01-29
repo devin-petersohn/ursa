@@ -63,4 +63,3 @@ class LocalEdges(object):
         new_edges.extend(new_buf)
 
         return new_edges
-

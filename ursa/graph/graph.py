@@ -399,6 +399,3 @@ class _DeletedVertex(_Vertex):
         @param transaction_id: The transaction ID for deleting the vertex.
         """
         super(_DeletedVertex, self).__init__(transaction_id=transaction_id)
-
-
-
