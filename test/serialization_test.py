@@ -11,8 +11,10 @@ def test_write_rows():
     e3 = ursa.graph.Edge("CTCTGCT", 3, "3")
 
     test_row = ursa.graph.graph._GraphRow(test_data,
-                                    set([e1, e2]),
-                                    {"graph2": set([e2, e3])}, 3)
+                                          set([e1, e2]),
+                                          {"graph2": set([e2, e3])}, 3)
 
-    dest = ursa.graph.utils.write_row(test_row, "graph1", "node1")
-    print(dest)
+    dest = ursa.graph.utils.write_row.remote(test_row, "graph1", "node1")
+
+    data = ursa.graph.graph.read_row.remote(dest)
+    print("data", ray.get(data))
