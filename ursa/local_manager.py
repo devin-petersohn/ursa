@@ -32,7 +32,7 @@ class GraphManager(object):
         self._graph_config[graph_id]["Directed"] = directed
 
     def _create_if_not_exists(self, graph_id):
-        """Create an empty graph if the graph is not found in the Graph Collection.
+        """Create a graph if the graph_id is not found in the Graph Collection.
 
         @param graph_id: The unique name of the new graph.
         """
@@ -197,9 +197,9 @@ class GraphManager(object):
 
         @return: The Object ID(s) of the local edges.
         """
-        edges_oid, buffer_oid = self.graph_dict[graph_id].\
+        edges, buf = self.graph_dict[graph_id].\
             select_local_edges.remote(self._transaction_id, key)
-        return _get_local_edges.remote(edges_oid, buffer_oid)
+        return _get_local_edges.remote(edges, buf)
 
     def select_foreign_edges(self, graph_id, key=None):
         """Gets all foreign edges for the graph/key specified.
@@ -235,7 +235,7 @@ class GraphManager(object):
 
 
 @ray.remote
-def _get_local_edges(edges_oid, buffer_oid):
-    remotes = ray.get(edges_oid)
-    remotes.append(buffer_oid)
+def _get_local_edges(edges, buf):
+    remotes = ray.get(edges)
+    remotes.append(buf)
     return [item for l in remotes for item in l]

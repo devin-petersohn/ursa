@@ -20,11 +20,12 @@ class Graph(object):
         self._creation_transaction_id = transaction_id
 
     @ray.method(num_return_vals=0)
-    def insert(self, key, oid, local_edges, foreign_edges, transaction_id):
-        """Inserts the data for a node into the graph.
+    def insert(self, key, vertex_data, local_edges, foreign_edges,
+               transaction_id):
+        """Inserts the data for a vertex into the graph.
 
-        @param key: The unique identifier of the node in the graph.
-        @param oid: The Ray ObjectID for the Node object referenced by key.
+        @param key: The unique identifier of the vertex in the graph.
+        @param vertex_data: The metadata for this vertex.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         @param foreign_edges: A dictionary of edges between graphs.
@@ -36,10 +37,11 @@ class Graph(object):
 
         if key not in self.vertices:
             self.vertices[key] = \
-                [_Vertex(oid, local_edges, foreign_edges, transaction_id)]
+                [_Vertex(vertex_data, local_edges, foreign_edges,
+                         transaction_id)]
         else:
             temp_vertex = self.vertices[key][-1] \
-                .copy(oid=oid, transaction_id=transaction_id)
+                .copy(vertex_data=vertex_data, transaction_id=transaction_id)
             temp_vertex = temp_vertex.add_local_edges(
                 transaction_id, local_edges)
             temp_vertex = temp_vertex.add_foreign_edges(
@@ -47,27 +49,27 @@ class Graph(object):
             self.vertices[key].append(temp_vertex)
 
     @ray.method(num_return_vals=0)
-    def update(self, key, node, local_edges, foreign_edges, transaction_id):
-        """Updates the data for a node in the graph.
+    def update(self, key, vertex_data, local_edges, foreign_edges,
+               transaction_id):
+        """Updates the data for a vertex in the graph.
 
-        @param key: The unique identifier of the node in the graph.
-        @param node: The Ray ObjectID for the Node object referenced by key.
-        @param local_edges: Edges within the same graph. This is a set of ray
-                            ObjectIDs.
+        @param key: The unique identifier of the vertex in the graph.
+        @param vertex_data: The metadata for this vertex.
         @param foreign_edges: A dictionary of edges between graphs.
         @param transaction_id: The system provided transaction id number.
         """
         assert self.vertex_exists(key, transaction_id), "Key does not exist"
 
-        last_node = self.vertices[key][-1]
-        node = last_node.copy(node, local_edges, foreign_edges, transaction_id)
-        self._create_or_update_vertex(key, node)
+        last_vertex = self.vertices[key][-1]
+        vertex = last_vertex.copy(vertex_data, local_edges, foreign_edges,
+                                  transaction_id)
+        self._create_or_update_vertex(key, vertex)
 
     @ray.method(num_return_vals=0)
     def delete(self, key, transaction_id):
-        """Deletes the data for a node in the graph.
+        """Deletes the data for a vertex in the graph.
 
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
         @param transaction_id: The transaction_id for this update.
         """
         self._create_or_update_vertex(key, _DeletedVertex(transaction_id))
@@ -75,7 +77,7 @@ class Graph(object):
     def _create_or_update_vertex(self, key, graph_vertex):
         """Creates or updates the vertex with the key provided.
 
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
         @param graph_vertex: The vertex to be created/updated.
         """
         if key not in self.vertices:
@@ -96,7 +98,7 @@ class Graph(object):
         """Adds one or more local edges.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         """
@@ -114,7 +116,7 @@ class Graph(object):
         """Adds one of more foreign edges.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
         @param graph_id: The unique name of the graph.
         @param foreign_edges: A dictionary of edges between graphs.
         """
@@ -129,32 +131,32 @@ class Graph(object):
         self._create_or_update_vertex(key, graph_vertex)
 
     def vertex_exists(self, key, transaction_id):
-        """True if the node existed at the time provided, False otherwise.
+        """True if the vertex existed at the time provided, False otherwise.
 
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
         @param transaction_id: The system provided transaction id number.
 
-        @return: If node exists in graph, returns true, otherwise false.
+        @return: If vertex exists in graph, returns true, otherwise false.
         """
         return key in self.vertices and \
-            self._get_history(transaction_id, key).node_exists()
+            self._get_history(transaction_id, key).vertex_exists()
 
     def select_vertex(self, transaction_id, key=None):
         """Selects the vertex with the key given at the time given.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
 
         @return: the requested vertex.
         """
-        return [self.select(transaction_id, "oid", key)]
+        return [self.select(transaction_id, "vertex_data", key)]
 
     @ray.method(num_return_vals=2)
     def select_local_edges(self, transaction_id, key=None):
         """Gets the local edges for the key and time provided.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
 
         @return: the Object ID(s) of the requested local edges.
         """
@@ -165,7 +167,7 @@ class Graph(object):
         """Gets the foreign keys for the key and time provided.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
 
         @return: The Object ID(s) of the requested foreign edges.
         """
@@ -176,7 +178,7 @@ class Graph(object):
 
         @param transaction_id: The system provided transaction id number.
         @param prop: The property to be selected.
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
 
         @return: If no key is provided, returns all vertices from the selected
                  graph.
@@ -185,7 +187,7 @@ class Graph(object):
             vertices = {}
             for key in self.vertices:
                 vertex_at_time = self._get_history(transaction_id, key)
-                if prop != "oid" or vertex_at_time.node_exists():
+                if prop != "vertex_data" or vertex_at_time.vertex_exists():
                     vertices[key] = getattr(vertex_at_time, prop)
             return vertices
         else:
@@ -199,7 +201,7 @@ class Graph(object):
         """Gets the historical state of the object with the key provided.
 
         @param transaction_id: The system provided transaction id number.
-        @param key: The unique identifier of the node in the graph.
+        @param key: The unique identifier of the vertex in the graph.
 
         @return: The most recent vertex not exceeding the bounds.
         """
@@ -235,27 +237,27 @@ class Graph(object):
 
 class _Vertex(object):
     def __init__(self,
-                 oid=None,
+                 vertex_data=None,
                  local_edges=[],
                  foreign_edges={},
                  transaction_id=-1):
         """Contains all data for a vertex of the Graph Database.
 
-        @param oid: The Ray ObjectID for the Node object referenced by key.
+        @param vertex_data: The metadata for this vertex.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         @param foreign_edges: A dictionary of edges between graphs.
         @param transaction_id: The transaction_id that generated this vertex.
         """
         # The only thing we keep as its actual value is the None to filter
-        if oid is not None:
+        if vertex_data is not None:
             # We need to put it in the Ray store if it's not there already.
-            if type(oid) is not ray.local_scheduler.ObjectID:
-                self.oid = ray.put(oid)
+            if type(vertex_data) is not ray.local_scheduler.ObjectID:
+                self.vertex_data = ray.put(vertex_data)
             else:
-                self.oid = oid
+                self.vertex_data = vertex_data
         else:
-            self.oid = oid
+            self.vertex_data = vertex_data
 
         if type(local_edges) is LocalEdges:
             self.local_edges = local_edges
@@ -359,13 +361,13 @@ class _Vertex(object):
                          transaction_id=transaction_id)
 
     def copy(self,
-             oid=None,
+             vertex_data=None,
              local_edges=None,
              foreign_edges=None,
              transaction_id=None):
         """Create a copy of this object and replace the provided fields.
 
-        @param oid: the Ray ObjectID for the Node object referenced by key.
+        @param vertex_data: The metadata for this vertex.
         @param local_edges: Edges within the same graph. This is a set of ray
                             ObjectIDs.
         @param foreign_edges: A dictionary of edges between graphs.
@@ -373,8 +375,8 @@ class _Vertex(object):
 
         @return: A new _Vertex object containing the copy.
         """
-        if oid is None:
-            oid = self.oid
+        if vertex_data is None:
+            vertex_data = self.vertex_data
         if local_edges is None:
             local_edges = self.local_edges
         if foreign_edges is None:
@@ -382,14 +384,14 @@ class _Vertex(object):
         if transaction_id is None:
             transaction_id = self._transaction_id
 
-        return _Vertex(oid, local_edges, foreign_edges, transaction_id)
+        return _Vertex(vertex_data, local_edges, foreign_edges, transaction_id)
 
-    def node_exists(self):
-        """Determine if a node exists.
+    def vertex_exists(self):
+        """Determine if a vertex exists.
 
-        @return: True if oid is not None, false otherwise.
+        @return: True if vertex_data is not None, false otherwise.
         """
-        return self.oid is not None
+        return self.vertex_data is not None
 
 
 class _DeletedVertex(_Vertex):
