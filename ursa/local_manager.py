@@ -236,6 +236,12 @@ class GraphManager(object):
 
 @ray.remote
 def _get_local_edges(edges, buf):
+    """Asynchronously gets the local edges from the LocalEdges structure.
+
+    @param edges: The list of remote lists of edges from LocalEdges.
+    @param buf: The buffer of edges not yet in remote memory.
+    @return: A list of all edges.
+    """
     remotes = ray.get(edges)
     remotes.append(buf)
     return [item for l in remotes for item in l]

@@ -55,6 +55,8 @@ class Graph(object):
 
         @param key: The unique identifier of the vertex in the graph.
         @param vertex_data: The metadata for this vertex.
+        @param local_edges: The list of edges from this vertex within the
+                            graph.
         @param foreign_edges: A dictionary of edges between graphs.
         @param transaction_id: The system provided transaction id number.
         """
