@@ -16,5 +16,5 @@ def test_write_rows():
 
     dest = ursa.graph.utils.write_row.remote(test_row, "graph1", "node1")
 
-    data = ursa.graph.graph.read_row.remote(dest)
+    data = ursa.graph.graph.read_graph_row.remote(dest)
     print("data", ray.get(data))

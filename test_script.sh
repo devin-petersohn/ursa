@@ -19,6 +19,7 @@ fi
 # run pytest for python3 on all test files
 python3 -m pytest -v test/local_manager_test.py
 python3 -m pytest -v test/graph_test.py
+python3 -m pytest -v test/serialization_test.py
 #python3 -m pytest -v test/test_connected_components.py
 
 # deactivate and remove the conda env
@@ -36,6 +37,7 @@ make prepare
 #run pytest for python2 on all test files
 python2 -m pytest -v test/local_manager_test.py
 python2 -m pytest -v test/graph_test.py
+python2 -m pytest -v test/serialization_test.py
 #python2 -m pytest -v test/test_connected_components.py
 
 # deactivate and remove the conda env
