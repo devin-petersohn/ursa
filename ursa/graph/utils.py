@@ -49,24 +49,25 @@ def _apply_append(collection, values):
 
 
 @ray.remote
-def write_row(row, graph_id, key):
+def write_vertex(vertex, graph_id, key):
     dest_directory = graph_id + "/" + key + "/"
 
     # @TODO(kunalgosar): Accessing _transaction_id here is not recommended
-    dest_file = dest_directory + str(row._transaction_id) + ".dat"
+    dest_file = dest_directory + str(vertex._transaction_id) + ".dat"
     if not os.path.exists(dest_directory):
         os.makedirs(dest_directory)
 
-    oids = [row.oid, row.local_keys]
-    foreign_keys = list(row.foreign_keys.keys())
-    oids.extend([row.foreign_keys[k] for k in foreign_keys])
+    oids = [vertex.oid, vertex.local_keys]
+    foreign_keys = list(vertex.foreign_keys.keys())
+    oids.extend([vertex.foreign_keys[k] for k in foreign_keys])
     oids = [pa.plasma.ObjectID(oid.id()) for oid in oids]
 
     buffers = ray.worker.global_worker.plasma_client.get_buffers(oids)
     data = {"node": buffers[0],
             "local_keys": buffers[1],
             "foreign_keys": foreign_keys,
-            "foreign_key_values": buffers[2:]}
+            "foreign_key_values": buffers[2:],
+            "transaction_id": vertex._transaction_id}
 
     serialization_context = ray.worker.global_worker.serialization_context
     serialized = pa.serialize(data, serialization_context).to_buffer()
@@ -77,7 +78,9 @@ def write_row(row, graph_id, key):
 
 
 @ray.remote(num_return_vals=3)
-def read_row(file):
+def read_vertex(file):
+    from .vertex import _Vertex
+
     mmap = pa.memory_map(file)
     buf = mmap.read()
 
@@ -89,4 +92,4 @@ def read_row(file):
     foreign_key_values = [pa.deserialize(x, serialization_context)
                           for x in data["foreign_key_values"]]
     foreign_keys = dict(zip(data["foreign_keys"], foreign_key_values))
-    return oid, local_keys, foreign_keys
+    return _Vertex(oid, local_keys, foreign_keys, data["transaction_id"])

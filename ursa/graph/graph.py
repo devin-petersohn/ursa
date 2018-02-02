@@ -1,7 +1,7 @@
 import ray
 from .vertex import _Vertex
 from .vertex import _DeletedVertex
-from .utils import write_row, read_row
+from .utils import write_vertex
 
 
 @ray.remote(num_cpus=2)
@@ -13,7 +13,11 @@ class Graph(object):
                               node
     @field graph_id: The globally unique ID to identify this graph.
     """
-    def __init__(self, transaction_id, graph_id, versions_to_store=5, vertices={}):
+    def __init__(self,
+                 transaction_id,
+                 graph_id,
+                 versions_to_store=5,
+                 vertices={}):
         """The constructor for the Graph object. Initializes all graph data.
 
         @param transaction_id: The system provided transaction id number.
@@ -249,10 +253,4 @@ class Graph(object):
                 continue
             self.rows[k] = rows[-self.versions_to_store:]
             rows_to_write = rows[:-self.versions_to_store]
-            [write_row(r, self.graph_id, k) for r in rows_to_write]
-
-
-@ray.remote
-def read_graph_row(file):
-    oid, local_keys, foreign_keys = read_row.remote(file)
-    return _GraphRow(ray.get(oid), ray.get(local_keys), ray.get(foreign_keys))
+            [write_vertex(r, self.graph_id, k) for r in rows_to_write]

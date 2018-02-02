@@ -4,7 +4,7 @@ import ray
 ray.init()
 
 
-def test_write_rows():
+def test_write_vertexs():
     test_data = "AGCGCTGTAGGGACACTGCAGGGAGGCCTCTGCTGCCCTGCT"
     e1 = ursa.graph.Edge("CTGCAGGGAG", 1, "1")
     e2 = ursa.graph.Edge("TGCAGGGAG", 2, "2")
@@ -14,7 +14,7 @@ def test_write_rows():
                                           set([e1, e2]),
                                           {"graph2": set([e2, e3])}, 3)
 
-    dest = ursa.graph.utils.write_row.remote(test_row, "graph1", "node1")
+    dest = ursa.graph.utils.write_vertex.remote(test_row, "graph1", "node1")
 
-    data = ursa.graph.graph.read_graph_row.remote(dest)
-    graph_row = ray.get(data)
+    data = ursa.graph.unils.read_vertex.remote(dest)
+    print(data)
