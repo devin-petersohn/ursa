@@ -238,7 +238,7 @@ class GraphManager(object):
                        "_creation_transaction_id"))
         self.graph_dict[graph_id] = \
             [self.graph_dict[graph_id],
-             ug.Graph.remote(t_id, 0, rows=second_split)]
+             ug.Graph.remote(t_id, 0, vertices=second_split)]
 
     def clean_old_rows(self):
         """Background process to spill old rows to disk

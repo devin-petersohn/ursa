@@ -206,7 +206,7 @@ def test_split():
 
     second_graph = ursa.graph.Graph.remote(transaction_id,
                                            key,
-                                           rows=graph.split.remote())
+                                           vertices=graph.split.remote())
 
     assert ray.get(graph.vertex_exists.remote("Key1", transaction_id))
     assert not \
