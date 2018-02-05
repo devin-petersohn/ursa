@@ -175,8 +175,7 @@ class GraphManager(object):
                  graph, false otherwise.
         """
         return graph_id in self.graph_dict and \
-            ray.get(self.graph_dict[graph_id]
-                    .vertex_exists.remote(key, self._transaction_id))
+            self.graph_dict[graph_id].row_exists.remote(key, self._transaction_id)
 
     def select_vertex(self, graph_id, key=None):
         """Gets all vertices for the graph/key specified.
