@@ -23,6 +23,7 @@ pip=pip
 extras=
 current_commit:=$(shell git log --pretty=oneline -n 1 -- $(pwd) | cut -f1 -d " ")
 dirty:=$(shell (git diff --exit-code && git diff --cached --exit-code) > /dev/null || printf -- --DIRTY)
+raysource=(git+https://github.com/ray-project/ray.git#subdirectory=python)
 
 green=\033[0;32m
 normal=\033[0m\n
@@ -53,7 +54,7 @@ prepare:
 	$(pip) install pytest==2.8.3
 	$(pip) install cython
 	$(pip) install cmake
-	$(pip) install git+https://github.com/ray-project/ray.git#subdirectory=python
+	$(pip) install ray
 
 .PHONY: help \
 		prepare \
