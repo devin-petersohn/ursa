@@ -2,6 +2,7 @@ import ray
 from ray import pyarrow as pa
 import numpy as np
 import os
+import ursa
 
 
 @ray.remote
@@ -48,7 +49,7 @@ def _apply_append(collection, values):
         return collection
 
 
-@ray.remote
+@ray.remote(num_return_vals=0)
 def write_vertex(vertex, graph_id, key):
     dest_directory = graph_id + "/" + key + "/"
 
@@ -57,39 +58,53 @@ def write_vertex(vertex, graph_id, key):
     if not os.path.exists(dest_directory):
         os.makedirs(dest_directory)
 
-    oids = [vertex.oid, vertex.local_keys]
-    foreign_keys = list(vertex.foreign_keys.keys())
-    oids.extend([vertex.foreign_keys[k] for k in foreign_keys])
-    oids = [pa.plasma.ObjectID(oid.id()) for oid in oids]
+    serialization_context = ray.worker.global_worker.serialization_context
+
+    oids = [vertex.vertex_data]
+    oids.extend(vertex.local_edges.edges)
+    local_edges_buffer = pa.serialize(vertex.local_edges.buf,
+                                      serialization_context).to_buffer()
+
+    oids.append(local_edges_buffer)
+    num_local_edge_lists = len(vertex.local_edges.edges) + 1
+
+    foreign_edges = list(vertex.foreign_edges.keys())
+    oids.extend([vertex.foreign_edges[k] for k in foreign_edges])
+    oids = [pa.plasma.ObjectID(oid.id()) for oid in oids
+            if type(oid) is ray.local_scheduler.ObjectID]
 
     buffers = ray.worker.global_worker.plasma_client.get_buffers(oids)
-    data = {"node": buffers[0],
-            "local_keys": buffers[1],
-            "foreign_keys": foreign_keys,
-            "foreign_key_values": buffers[2:],
+    data = {"vertex_data": buffers[0],
+            "local_edges": buffers[1:1 + num_local_edge_lists],
+            "foreign_edges": foreign_edges,
+            "foreign_edge_values": buffers[1 + num_local_edge_lists:],
             "transaction_id": vertex._transaction_id}
 
-    serialization_context = ray.worker.global_worker.serialization_context
     serialized = pa.serialize(data, serialization_context).to_buffer()
     with pa.OSFile(dest_file, 'wb') as f:
         f.write(serialized)
 
-    return dest_file
 
-
-@ray.remote(num_return_vals=3)
+@ray.remote
 def read_vertex(file):
-    from .vertex import _Vertex
-
     mmap = pa.memory_map(file)
     buf = mmap.read()
 
     serialization_context = ray.worker.global_worker.serialization_context
     data = pa.deserialize(buf, serialization_context)
 
-    oid = pa.deserialize(data["node"], serialization_context)
-    local_keys = pa.deserialize(data["local_keys"], serialization_context)
-    foreign_key_values = [pa.deserialize(x, serialization_context)
-                          for x in data["foreign_key_values"]]
-    foreign_keys = dict(zip(data["foreign_keys"], foreign_key_values))
-    return _Vertex(oid, local_keys, foreign_keys, data["transaction_id"])
+    vertex_data = pa.deserialize(data["vertex_data"], serialization_context)
+    local_edges = np.array([pa.deserialize(x, serialization_context)
+                            for x in data["local_edges"]]).flatten()
+
+    foreign_edge_values = [pa.deserialize(x, serialization_context)
+                           for x in data["foreign_edge_values"]]
+
+    foreign_edges = dict(zip(data["foreign_edges"], foreign_edge_values))
+
+    new_vertex = ursa.graph.vertex._Vertex(vertex_data,
+                                           local_edges,
+                                           foreign_edges,
+                                           data["transaction_id"])
+
+    return new_vertex

@@ -8,6 +8,7 @@ class GraphManager(object):
         self.graph_dict = {}
         self._graph_config = {}
         self._transaction_id = 0
+        self.versions_to_store = 5
 
     def update_transaction_id(self):
         """Updates the transaction ID with that of the global graph manager."""
@@ -16,14 +17,12 @@ class GraphManager(object):
     def create_graph(self,
                      graph_id,
                      directed=False,
-                     new_transaction=True,
-                     versions_to_store=5):
+                     new_transaction=True):
         """Create an empty graph.
 
         @param graph_id: The unique name of the new graph.
         @param directed: Whether or not the new graph is directed.
         @param new_transaction: Defaults to true.
-        @param versions_to_store: The number of old graphs to keep in memory
         """
         if new_transaction:
             self._transaction_id += 1
@@ -32,9 +31,7 @@ class GraphManager(object):
             raise ValueError("Graph must be named something.")
         if graph_id in self.graph_dict:
             raise ValueError("Graph name already exists.")
-        self.graph_dict[graph_id] = ug.Graph.remote(self._transaction_id,
-                                                    versions_to_store,
-                                                    graph_id)
+        self.graph_dict[graph_id] = ug.Graph.remote(self._transaction_id)
         self._graph_config[graph_id] = {}
         self._graph_config[graph_id]["Directed"] = directed
 
@@ -238,13 +235,13 @@ class GraphManager(object):
                        "_creation_transaction_id"))
         self.graph_dict[graph_id] = \
             [self.graph_dict[graph_id],
-             ug.Graph.remote(t_id, 0, vertices=second_split)]
+             ug.Graph.remote(t_id, vertices=second_split)]
 
     def clean_old_rows(self):
         """Background process to spill old rows to disk
         """
-        for _, g in self.graph_dict.items():
-            g.clean_old_rows()
+        for g_id, g in self.graph_dict.items():
+            g.clean_old_rows(g_id, self.versions_to_store)
 
 
 @ray.remote

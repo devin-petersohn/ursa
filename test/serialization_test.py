@@ -14,7 +14,10 @@ def test_write_vertices():
                                          set([e1, e2]),
                                          {"graph2": set([e2, e3])})
 
-    dest = ursa.graph.utils.write_vertex.remote(test_row, "graph1", "node1")
+    dest = "graph1/node1/-1.dat"
+    ursa.graph.utils.write_vertex.remote(test_row, "graph1", "node1")
 
-    data = ursa.graph.utils.read_vertex.remote(dest)
-    print(data)
+    oid = ursa.graph.utils.read_vertex.remote(dest)
+    data = ray.get(oid)
+
+    assert(type(data) is ursa.graph.vertex._Vertex)
