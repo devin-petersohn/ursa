@@ -8,16 +8,13 @@ class GraphManager(object):
         self.graph_dict = {}
         self._graph_config = {}
         self._transaction_id = 0
-        self.versions_to_store = 5
+        self._graph_config['versions_to_store'] = 5
 
     def update_transaction_id(self):
         """Updates the transaction ID with that of the global graph manager."""
         pass
 
-    def create_graph(self,
-                     graph_id,
-                     directed=False,
-                     new_transaction=True):
+    def create_graph(self, graph_id, directed=False, new_transaction=True):
         """Create an empty graph.
 
         @param graph_id: The unique name of the new graph.
@@ -241,7 +238,7 @@ class GraphManager(object):
         """Background process to spill old rows to disk
         """
         for g_id, g in self.graph_dict.items():
-            g.clean_old_rows(g_id, self.versions_to_store)
+            g.clean_old_rows(g_id, self._graph_config['versions_to_store'])
 
 
 @ray.remote

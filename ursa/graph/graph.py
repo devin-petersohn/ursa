@@ -10,9 +10,7 @@ class Graph(object):
 
     @field vertices: The dictionary of _Vertex objects.
     """
-    def __init__(self,
-                 transaction_id,
-                 vertices={}):
+    def __init__(self, transaction_id, vertices={}):
         """The constructor for the Graph object. Initializes all graph data.
 
         @param transaction_id: The system provided transaction id number.

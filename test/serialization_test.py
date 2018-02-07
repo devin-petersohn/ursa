@@ -4,7 +4,7 @@ import ray
 ray.init()
 
 
-def test_write_vertices():
+def test_serialization_round_trip():
     test_data = "AGCGCTGTAGGGACACTGCAGGGAGGCCTCTGCTGCCCTGCT"
     e1 = ursa.graph.Edge("CTGCAGGGAG", 1, "1")
     e2 = ursa.graph.Edge("TGCAGGGAG", 2, "2")
