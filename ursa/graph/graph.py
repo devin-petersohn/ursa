@@ -238,6 +238,10 @@ class Graph(object):
 
     def clean_old_rows(self, graph_id, versions_to_store):
         """Spills all rows older than versions_to_store to disk.
+
+        @param graph_id: The id of the current graph
+        @param versions_to_store: The number of versions for each vertex to
+                                  persist in memory
         """
         for k, rows in self.rows.items():
             if len(rows) < versions_to_store:

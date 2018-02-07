@@ -51,6 +51,12 @@ def _apply_append(collection, values):
 
 @ray.remote(num_return_vals=0)
 def write_vertex(vertex, graph_id, key):
+    """Writes the current vertex to disk
+
+    @param vertex: The vertex to write to disk
+    @param graph_id: The graph id that this vertex belongs to
+    @param key: The key that uniquely identifies this vertex in the graph
+    """
     dest_directory = graph_id + "/" + key + "/"
 
     # @TODO(kunalgosar): Accessing _transaction_id here is not recommended
@@ -87,6 +93,12 @@ def write_vertex(vertex, graph_id, key):
 
 @ray.remote
 def read_vertex(file):
+    """Reads a vertex out from file
+
+    @param file: The file location of the vertex data
+
+    @return: A new vertex object containing the data from file
+    """
     mmap = pa.memory_map(file)
     buf = mmap.read()
 
