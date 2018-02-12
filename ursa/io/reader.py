@@ -1,64 +1,73 @@
 import csv
 
 
-class reader(object):
+def read_csv(self, graph_manager, label, data_file, key_col, reln_file=None):
     """
-    This object constructs a graph from various file types
+    Generates a graph from node data CSV file and optionally supplied
+    relationship CSV file to define edges
+
+    Keyword arguments:
+    @param label: Name of the new graph
+    @param data_file: Path to the CSV file with graph data
+    @param key_col: Index or column name in data file
+    @param reln_file: Path to the optional CSV file with reln data
     """
 
-    def __init__(self, graph_manager):
-        """The constructor for the Reader object
+    graph_id = label
 
-        Keyword arguments:
-        graph_manager -- manager for this instance
-        """
+    # Load raw CSV data into an array to process
+    raw_vertex_data = []
+    with open(data_file) as csv_file:
+        graph_reader = csv.reader(csv_file)
+        for row in graph_reader:
+            raw_vertex_data.append(row)
 
-        self.graph_manager = graph_manager
+    # Insert vertices with data
+    # (TODO) Check if column titles provided, right now assuming yes
+    column_titles = raw_vertex_data[0]
+    raw_vertex_data = raw_vertex_data[1:]
 
-    def graph_from_csv(self, graph_id, file_path, with_header=True):
-        """Generates a graph from a CSV file of the header format
-        key, oid, local_edges, foreign_edges
+    if type(key_col) == str:
+        key_col = column_titles.index(key_col)
 
-        Keyword arguments:
-        graph_id -- name of the new graph
-        file_path -- path to the CSV file with graph data
-        """
+    for row in raw_vertex_data:
+        node = {}
+        for col, val in enumerate(row):
+            if col == key_col:
+                key = val
+            else:
+                node[column_titles[col]] = val
 
-        # Load raw CSV data into an array to process
-        raw_data = []
-        with open(file_path) as csv_file:
+        self.graph_manager.insert(graph_id, key, node)
+
+    # Insert edges from relationship file
+    # (TODO) Check if column titles provided, right now assuming yes
+    # Assume fmt src_label, src_node, dest_label, dest_node
+    if reln_file is not None:
+        raw_edge_data = []
+        with open(reln_file) as csv_file:
             graph_reader = csv.reader(csv_file)
             for row in graph_reader:
-                raw_data.append(row)
+                raw_edge_data.append(row)
 
-        # If file has header, remove before processing
-        if with_header:
-            raw_data = raw_data[1:]
+        column_titles = raw_edge_data[0]
+        raw_edge_data = raw_edge_data[1:]
 
-        # Initalize the graph
-        self.graph_manager.create_graph(graph_id)
+        for edge in raw_edge_data:
+            src_graph_label, src_graph_key = edge[0], edge[1]
+            dest_graph_label, dest_graph_key = edge[2], edge[3]
 
-        # Add the nodes and edges
-        for row in raw_data:
-            key = row[0]
-            oid = row[1]
+            # Insert local edge
+            if src_graph_label == dest_graph_label:
+                self.graph_manager.add_local_edges(
+                    src_graph_label,
+                    src_graph_key,
+                    dest_graph_key)
 
-            local_edges = set(row[2].split(";")) if row[2] else set()
-            foreign_edges = {}  # (TODO) Implement foreign_edges
-
-            self.graph_manager.insert(
-                graph_id, key, oid, local_edges, foreign_edges)
-
-        # (TODO) Change return flag
-        return 1
-
-    def graph_from_json(self, graph_id, file_path):
-        """Generates a graph from a JSON file
-
-        Keyword arguments:
-        graph_id -- name of the new graph
-        file_path -- path to the JSON file with graph data
-        """
-
-        # (TODO) Implement this
-        return
+            # Insert foreign edge
+            else:
+                self.graph_manager.add_foreign_edges(
+                    src_graph_label,
+                    src_graph_key,
+                    dest_graph_label,
+                    dest_graph_key)

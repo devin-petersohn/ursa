@@ -1,7 +1,7 @@
 from . import database
 from .local_manager import GraphManager
 from . import graph
-from . import io
+from .io.reader import read_csv
 
 __all__ = ["database", "GraphManager", "graph"]
 
