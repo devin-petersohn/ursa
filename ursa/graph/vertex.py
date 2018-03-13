@@ -162,6 +162,14 @@ class _Vertex(object):
         """
         return self.vertex_data is not None
 
+    def clean_local_edges(self):
+        """Sorts and removes duplicates from all the local edges for a given vertex.
+
+        @return: A new _Vertex object with globally sorted local edges.
+        """
+        new_local_edges = self.local_edges.merge_common_partitions()
+        return self.copy(local_edges=new_local_edges)
+
 
 class _DeletedVertex(_Vertex):
     def __init__(self, transaction_id):

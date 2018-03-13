@@ -103,3 +103,9 @@ ENV/
 # intellij
 .idea/
 *.iml
+
+# vim swap files
+*.swp
+
+# macOS files
+.DS_Store

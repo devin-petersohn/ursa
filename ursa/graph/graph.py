@@ -249,3 +249,12 @@ class Graph(object):
             self.rows[k] = rows[-versions_to_store:]
             rows_to_write = rows[:-versions_to_store]
             [write_vertex(r, graph_id, k) for r in rows_to_write]
+
+    def clean_local_edges(self, key):
+        """Sorts the local edges corresponding to a vertex in the graph.
+
+        @param key: The unique identifier of the vertex in the graph.
+        """
+        if key in self.vertices:
+            graph_vertex = self.vertices[key][-1].clean_local_edges()
+            self._create_or_update_vertex(key, graph_vertex)
